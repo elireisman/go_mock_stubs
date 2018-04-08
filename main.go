@@ -9,7 +9,21 @@ import (
 	"path/filepath"
 )
 
-const GlobalScope = ""
+const (
+  GlobalScope = ""
+
+  MockTemplate = `
+package {{.Pkg}}
+
+import (
+  ## TODO ##
+)
+
+## TODO: PRINT STRUCTS FROM {{.Funcs}} MAP KEYS AS interface'S + FUNC LISTS ##
+
+## TODO: PRINT FUNCS W/RECEIVERS AS NO-OP STUBS ##
+`
+)
 
 var (
 	SourceFile string
@@ -71,8 +85,28 @@ func main() {
 		return true
 	})
 
-	fmt.Printf("%+v\n", unit)
+        fmt.Printf("CAPTURED AST: %+v\n", unit)
 	fmt.Println()
+
+        out, err := render(unit); err != nil {
+          panic(err)
+        }
+        fmt.Println(out)
+}
+
+func render(unit *CompilationUnit) (string, error) {
+	tmpl, err := template.New("mock").Parse(MockTemplate)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %s", err)
+	}
+
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, *conf); err != nil {
+		return "", fmt.Errorf("failed to resolve output string from template: %s", err)
+	}
+
+        // TODO: maybe output.Bytes() instead?
+	return output.String(), nil
 }
 
 func formatArgs(args *ast.FieldList) []string {
