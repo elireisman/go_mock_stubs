@@ -9,17 +9,30 @@ import (
 	"path/filepath"
 )
 
+const GlobalScope = ""
+
 var (
 	SourceFile string
+	Data       *CompilationUnit
 )
 
-func init() {
-	flag.StringVar(&SourceFile, "source-file", "example.go", "the Golang file to parse")
+type CompilationUnit struct {
+	Pkg     string
+	Imports []string
+	Funcs   map[string][]Signature
+}
+
+type Signature struct {
+	Name     string
+	Receiver string
+	Args     []string
+	Returns  []string
 }
 
 func main() {
+	flag.StringVar(&SourceFile, "source-file", "example.go", "the Golang file to parse")
 	flag.Parse()
-	//destFile := buildDest()
+	//destFilePath := buildDest()
 
 	fileSet := token.NewFileSet()
 	node, err := parser.ParseFile(fileSet, SourceFile, nil, parser.ParseComments)
@@ -27,25 +40,52 @@ func main() {
 		panic(fmt.Sprintf("failed to parse source file %q into Golang AST: %s", err))
 	}
 
-	//pkg := node.Name // package name of file
+	unit := &CompilationUnit{
+		Pkg:     node.Name.Name,
+		Imports: []string{},
+		Funcs:   map[string][]Signature{},
+	}
+
+	for _, impt := range node.Imports {
+		unit.Imports = append(unit.Imports, impt.Path.Value)
+	}
 
 	// TODO: find public struct & function defs
-	funcs := []*ast.FuncDecl{}
 	ast.Inspect(node, func(n ast.Node) bool {
-
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
-				funcs = append(funcs, fn)
+				rcvr := GlobalScope
+				if len(fn.Recv.List) > 0 && len(fn.Recv.List[0].Names) > 0 {
+					rcvr = fn.Recv.List[0].Names[0].Name
+				}
+				sig := Signature{
+					Name:     fn.Name.Name,
+					Receiver: rcvr,
+					Args:     formatArgs(fn.Type.Params),
+					Returns:  formatArgs(fn.Type.Results),
+				}
+				unit.Funcs[rcvr] = append(unit.Funcs[rcvr], sig)
 			}
 		}
 
 		return true
 	})
 
-	for _, fn := range funcs {
-		fmt.Printf("%#v", *fn)
-	}
+	fmt.Printf("%+v\n", unit)
 	fmt.Println()
+}
+
+func formatArgs(args *ast.FieldList) []string {
+	var out []string
+	for _, f := range args.List {
+		if len(f.Names) > 0 {
+			out = append(out, fmt.Sprintf("%s %s", f.Names[0], f.Type))
+		} else {
+			out = append(out, fmt.Sprintf("%s", f.Type))
+		}
+	}
+
+	return out
 }
 
 func buildDest() string {
