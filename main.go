@@ -1,27 +1,44 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"html/template"
 	"path/filepath"
+	"strings"
 )
 
 const (
-  GlobalScope = ""
+	GlobalScope = ""
 
-  MockTemplate = `
+	MockTemplate = `
 package {{.Pkg}}
 
 import (
-  ## TODO ##
+{{range $imp := .Imports}}
+  "{{$imp}}"
+{{end}}
 )
 
-## TODO: PRINT STRUCTS FROM {{.Funcs}} MAP KEYS AS interface'S + FUNC LISTS ##
+{{range $rcvr, $sigs := .Funcs}}
+type {{$rcvr}} interface {
+  {{range $sig := $sigs}}
+    func {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}}
+  {{end}}
+}
 
-## TODO: PRINT FUNCS W/RECEIVERS AS NO-OP STUBS ##
+{{end}}
+
+
+{{range $rcvr, $sigs := .Funcs}}
+  {{range $sig := $sigs}}
+    func ({{$sig.Receiver}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { }
+  {{end}}
+{{end}}
 `
 )
 
@@ -43,6 +60,21 @@ type Signature struct {
 	Returns  []string
 }
 
+func (s Signature) ListArgs() string {
+	return strings.Join(s.Args, ", ")
+}
+
+func (s Signature) ListReturns() string {
+	switch len(s.Returns) {
+	case 0:
+		return ""
+	case 1:
+		return s.Returns[0]
+	default:
+		return "(" + strings.Join(s.Returns, ", ") + ")"
+	}
+}
+
 func main() {
 	flag.StringVar(&SourceFile, "source-file", "example.go", "the Golang file to parse")
 	flag.Parse()
@@ -61,7 +93,8 @@ func main() {
 	}
 
 	for _, impt := range node.Imports {
-		unit.Imports = append(unit.Imports, impt.Path.Value)
+		v := impt.Path.Value
+		unit.Imports = append(unit.Imports, v[1:len(v)-1])
 	}
 
 	// TODO: find public struct & function defs
@@ -85,13 +118,13 @@ func main() {
 		return true
 	})
 
-        fmt.Printf("CAPTURED AST: %+v\n", unit)
-	fmt.Println()
+	out, err := render(unit)
+	if err != nil {
+		panic(err)
+	}
 
-        out, err := render(unit); err != nil {
-          panic(err)
-        }
-        fmt.Println(out)
+	fmt.Println(out)
+	fmt.Println()
 }
 
 func render(unit *CompilationUnit) (string, error) {
@@ -101,11 +134,11 @@ func render(unit *CompilationUnit) (string, error) {
 	}
 
 	var output bytes.Buffer
-	if err := tmpl.Execute(&output, *conf); err != nil {
+	if err := tmpl.Execute(&output, unit); err != nil {
 		return "", fmt.Errorf("failed to resolve output string from template: %s", err)
 	}
 
-        // TODO: maybe output.Bytes() instead?
+	// TODO: maybe output.Bytes() instead?
 	return output.String(), nil
 }
 
