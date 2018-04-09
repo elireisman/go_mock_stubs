@@ -25,19 +25,17 @@ import (
 )
 
 {{range $rcvr, $sigs := .Funcs}}
+type {{$x := index $sigs 0}}{{$x.RcvrType}} struct { }
+
 type {{$rcvr}} interface {
-  {{range $sig := $sigs}}
-    func {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}}
-  {{end}}
-}
+{{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}}
+{{end}}}
 
 {{end}}
 
-
 {{range $rcvr, $sigs := .Funcs}}
-  {{range $sig := $sigs}}
-func ({{$sig.RcvrName}} *{{$sig.RcvrType}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { }
-  {{end}}
+{{range $sig := $sigs}}func ({{$sig.RcvrName}} *{{$sig.RcvrType}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { {{$sig.ReturnStmt}} }
+{{end}}
 {{end}}
 `
 )
@@ -54,11 +52,12 @@ type CompilationUnit struct {
 }
 
 type Signature struct {
-	Name     string
-	RcvrName string
-	RcvrType string
-	Args     []string
-	Returns  []string
+	Name       string
+	RcvrName   string
+	RcvrType   string
+	Args       []string
+	Returns    []string
+	ReturnStmt string
 }
 
 func (s Signature) ListArgs() string {
@@ -98,7 +97,6 @@ func main() {
 		unit.Imports = append(unit.Imports, v[1:len(v)-1])
 	}
 
-	// TODO: find public struct & function defs
 	ast.Inspect(node, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
@@ -110,11 +108,12 @@ func main() {
 					}
 				}
 				sig := Signature{
-					Name:     fn.Name.Name,
-					RcvrName: rName,
-					RcvrType: rType,
-					Args:     formatArgs(fn.Type.Params),
-					Returns:  formatArgs(fn.Type.Results),
+					Name:       fn.Name.Name,
+					RcvrName:   rName,
+					RcvrType:   toMock(rType),
+					Args:       formatArgs(fn.Type.Params),
+					Returns:    formatArgs(fn.Type.Results),
+					ReturnStmt: formatRetStmt(fn.Type.Results),
 				}
 				unit.Funcs[rType] = append(unit.Funcs[rType], sig)
 			}
@@ -145,6 +144,50 @@ func render(unit *CompilationUnit) (string, error) {
 
 	// TODO: maybe output.Bytes() instead?
 	return output.String(), nil
+}
+
+func toMock(t string) string {
+	parts := strings.Split(t, `.`)
+	last := len(parts) - 1
+	sep := ""
+	if last > 0 {
+		sep = `.`
+	}
+
+	return strings.Join(parts[:last], `.`) + sep + "mock" + parts[last]
+}
+
+func formatRetStmt(args *ast.FieldList) string {
+	rets := []string{}
+	for _, f := range args.List {
+		rType := fmt.Sprintf("%s", f.Type)
+		switch rType {
+		case "int", "int8", "int16", "int32", "int64",
+			"uint", "uint8", "uint16", "uint32", "uint64",
+			"float32", "float64":
+			rets = append(rets, "0")
+		case "string":
+			rets = append(rets, `""`)
+		case "bool":
+			rets = append(rets, "false")
+		case "rune":
+			rets = append(rets, "rune(0)")
+		case "complex64", "complex128":
+			rets = append(rets, "complex(0, 0)")
+		case "error":
+			rets = append(rets, "nil")
+		default:
+			// is it a pointer type?
+			if _, ok := f.Type.(*ast.StarExpr); ok {
+				rets = append(rets, "nil")
+			} else {
+				// OK, let's assume from here its a map, slice/array, or struct (...waves hands...)
+				rets = append(rets, rType+"{}")
+			}
+		}
+	}
+
+	return "return " + strings.Join(rets, ", ")
 }
 
 func formatArgs(args *ast.FieldList) []string {
