@@ -208,7 +208,7 @@ func extractPkgPrefix(unit *CompilationUnit, t string) {
 func formatRetStmt(args *ast.FieldList) string {
 	rets := []string{}
 	for _, f := range args.List {
-		rType := fmt.Sprintf("%s", f.Type)
+		rType := parseType(f.Type)
 		switch rType {
 		case "int", "int8", "int16", "int32", "int64",
 			"uint", "uint8", "uint16", "uint32", "uint64",
@@ -240,13 +240,46 @@ func formatRetStmt(args *ast.FieldList) string {
 	return "return " + strings.Join(rets, ", ")
 }
 
+func parseType(t interface{}) string {
+	_, path := walkTypePath(t, []string{})
+	ret := ""
+	if path[0] == `*` {
+		ret = "*" + strings.Join(path[1:], `.`)
+	} else {
+		ret = strings.Join(path, `.`)
+	}
+	return ret
+}
+
+func walkTypePath(t interface{}, path []string) (interface{}, []string) {
+	switch elem := t.(type) {
+	case *ast.Ident:
+		path = append(path, elem.Name)
+
+	case *ast.StarExpr:
+		path = append(path, `*`)
+		t, path = walkTypePath(elem.X, path)
+
+	case *ast.SelectorExpr:
+		t, path = walkTypePath(elem.X, path)
+		t, path = walkTypePath(elem.Sel, path)
+
+	default:
+		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v", elem, elem))
+	}
+
+	return t, path
+}
+
 func formatArgs(args *ast.FieldList) []string {
 	var out []string
 	for _, f := range args.List {
+		found := parseType(f.Type)
+		// TODO: handle complex non-ptr types too!
 		if len(f.Names) > 0 {
-			out = append(out, fmt.Sprintf("%s %s", f.Names[0], f.Type))
+			out = append(out, fmt.Sprintf("%s %s", f.Names[0], found))
 		} else {
-			out = append(out, fmt.Sprintf("%s", f.Type))
+			out = append(out, fmt.Sprintf("%s", found))
 		}
 	}
 
