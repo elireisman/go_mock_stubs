@@ -18,11 +18,7 @@ const (
 	MockTemplate = `
 package {{.Pkg}}
 
-import (
-{{range $imp := .Imports}}
-  "{{$imp}}"
-{{end}}
-)
+{{.FormatImports}}
 
 {{range $rcvr, $sigs := .Funcs}}
 type {{$x := index $sigs 0}}{{$x.RcvrType}} struct { }
@@ -46,9 +42,47 @@ var (
 )
 
 type CompilationUnit struct {
-	Pkg     string
-	Imports []string
-	Funcs   map[string][]Signature
+	Pkg      string
+	Imports  []Import
+	Prefixes map[string]bool
+	Funcs    map[string][]Signature
+}
+
+func (cu *CompilationUnit) FormatImports() string {
+	found := map[Import]bool{}
+	for _, imp := range cu.Imports {
+		parts := strings.Split(imp.Path, `.`)
+		pkg := parts[len(parts)-1]
+		if _, ok := cu.Prefixes[imp.Alias]; ok {
+			found[imp] = true
+		} else if _, ok := cu.Prefixes[pkg]; ok {
+			found[imp] = true
+		}
+	}
+
+	if len(found) == 0 {
+		return ""
+	}
+
+	rendered := "import (\n"
+	for foundImp := range found {
+		rendered += "  " + foundImp.Format() + "\n"
+	}
+	rendered += ")\n"
+
+	return rendered
+}
+
+type Import struct {
+	Alias string
+	Path  string
+}
+
+func (i Import) Format() string {
+	if len(i.Alias) > 0 {
+		return i.Alias + ` "` + i.Path + `"`
+	}
+	return `"` + i.Path + `"`
 }
 
 type Signature struct {
@@ -87,14 +121,20 @@ func main() {
 	}
 
 	unit := &CompilationUnit{
-		Pkg:     node.Name.Name,
-		Imports: []string{},
-		Funcs:   map[string][]Signature{},
+		Pkg:      node.Name.Name,
+		Imports:  []Import{},
+		Prefixes: map[string]bool{},
+		Funcs:    map[string][]Signature{},
 	}
 
 	for _, impt := range node.Imports {
-		v := impt.Path.Value
-		unit.Imports = append(unit.Imports, v[1:len(v)-1])
+		alias := ""
+		if impt.Name != nil {
+			alias = impt.Name.Name
+		}
+		path := impt.Path.Value[1 : len(impt.Path.Value)-1]
+		next := Import{Alias: alias, Path: path}
+		unit.Imports = append(unit.Imports, next)
 	}
 
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -116,6 +156,7 @@ func main() {
 					ReturnStmt: formatRetStmt(fn.Type.Results),
 				}
 				unit.Funcs[rType] = append(unit.Funcs[rType], sig)
+				extractPkgPrefix(unit, rType)
 			}
 		}
 
@@ -157,6 +198,13 @@ func toMock(t string) string {
 	return strings.Join(parts[:last], `.`) + sep + "mock" + parts[last]
 }
 
+func extractPkgPrefix(unit *CompilationUnit, t string) {
+	parts := strings.Split(t, `.`)
+	if len(parts) > 0 {
+		unit.Prefixes[parts[0]] = true
+	}
+}
+
 func formatRetStmt(args *ast.FieldList) string {
 	rets := []string{}
 	for _, f := range args.List {
@@ -177,8 +225,10 @@ func formatRetStmt(args *ast.FieldList) string {
 		case "error":
 			rets = append(rets, "nil")
 		default:
-			// is it a pointer type?
-			if _, ok := f.Type.(*ast.StarExpr); ok {
+			if strings.Contains(rType, "map") || strings.Contains(rType, "[") {
+				rets = append(rets, "nil")
+			} else if _, ok := f.Type.(*ast.StarExpr); ok {
+				// it's a pointer type
 				rets = append(rets, "nil")
 			} else {
 				// OK, let's assume from here its a map, slice/array, or struct (...waves hands...)
