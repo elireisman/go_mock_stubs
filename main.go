@@ -36,7 +36,7 @@ type {{$rcvr}} interface {
 
 {{range $rcvr, $sigs := .Funcs}}
   {{range $sig := $sigs}}
-    func ({{$sig.Receiver}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { }
+func ({{$sig.RcvrName}} *{{$sig.RcvrType}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { }
   {{end}}
 {{end}}
 `
@@ -55,7 +55,8 @@ type CompilationUnit struct {
 
 type Signature struct {
 	Name     string
-	Receiver string
+	RcvrName string
+	RcvrType string
 	Args     []string
 	Returns  []string
 }
@@ -101,17 +102,21 @@ func main() {
 	ast.Inspect(node, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
-				rcvr := GlobalScope
-				if len(fn.Recv.List) > 0 && len(fn.Recv.List[0].Names) > 0 {
-					rcvr = fn.Recv.List[0].Names[0].Name
+				rName, rType := GlobalScope, GlobalScope
+				if len(fn.Recv.List) > 0 {
+					if ptrExpr, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
+						astID, _ := ptrExpr.X.(*ast.Ident)
+						rName, rType = fn.Recv.List[0].Names[0].Name, astID.Name
+					}
 				}
 				sig := Signature{
 					Name:     fn.Name.Name,
-					Receiver: rcvr,
+					RcvrName: rName,
+					RcvrType: rType,
 					Args:     formatArgs(fn.Type.Params),
 					Returns:  formatArgs(fn.Type.Results),
 				}
-				unit.Funcs[rcvr] = append(unit.Funcs[rcvr], sig)
+				unit.Funcs[rType] = append(unit.Funcs[rType], sig)
 			}
 		}
 
