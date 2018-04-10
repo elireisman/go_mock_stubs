@@ -257,11 +257,15 @@ func parseType(t interface{}) string {
 	_, path := walkTypePath(t, []string{})
 	ret := ""
 
+	// TODO: recurse here, skip dot-paths for *, ..., and [] (maybe more prefixes?) for multi-dim or double ptr etc.
 	if len(path) > 0 {
 		if path[0] == `*` {
 			ret = `*` + strings.Join(path[1:], `.`)
 		} else if path[0] == `...` {
 			ret = `...` + strings.Join(path[1:], `.`)
+		} else if path[0] == `[]` {
+			ret = `[]` + strings.Join(path[1:], `.`)
+
 		} else {
 			ret = strings.Join(path, `.`)
 		}
