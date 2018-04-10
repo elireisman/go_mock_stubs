@@ -38,7 +38,7 @@ func ToMock(t string) string {
 
 func ExtractPkgPrefix(unit *tree.CompilationUnit, t string) {
 	parts := strings.Split(t, `.`)
-	if len(parts) > 0 {
+	if len(parts) > 0 && parts[0] != "" {
 		unit.Prefixes[parts[0]] = true
 	}
 }
@@ -142,12 +142,17 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 	return t, path
 }
 
-func FormatArgs(args *ast.FieldList) []string {
+func FormatArgs(unit *tree.CompilationUnit, args *ast.FieldList) []string {
 	out := []string{}
 	if args != nil {
 		for _, f := range args.List {
 			found := ParseType(f.Type)
-			// TODO: handle complex non-ptr types too!
+
+			split := strings.Split(found, `.`)
+			if len(split) > 1 {
+				ExtractPkgPrefix(unit, split[0])
+			}
+
 			if len(f.Names) > 0 {
 				out = append(out, fmt.Sprintf("%s %s", f.Names[0], found))
 			} else {

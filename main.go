@@ -90,13 +90,12 @@ func main() {
 					Name:       fn.Name.Name,
 					RcvrName:   rName,
 					RcvrType:   utils.ToMock(rType),
-					Args:       utils.FormatArgs(fn.Type.Params),
-					Returns:    utils.FormatArgs(fn.Type.Results),
+					Args:       utils.FormatArgs(unit, fn.Type.Params),
+					Returns:    utils.FormatArgs(unit, fn.Type.Results),
 					ReturnStmt: utils.FormatRetStmt(fn.Type.Results),
 				}
 
 				unit.Funcs[rType] = append(unit.Funcs[rType], sig)
-				utils.ExtractPkgPrefix(unit, rType)
 			}
 		}
 

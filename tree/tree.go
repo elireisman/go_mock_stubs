@@ -1,6 +1,9 @@
 package tree
 
-import "strings"
+import (
+	"path"
+	"strings"
+)
 
 type CompilationUnit struct {
 	Pkg      string
@@ -12,8 +15,7 @@ type CompilationUnit struct {
 func (cu *CompilationUnit) FormatImports() string {
 	found := map[Import]bool{}
 	for _, imp := range cu.Imports {
-		parts := strings.Split(imp.Path, `.`)
-		pkg := parts[len(parts)-1]
+		_, pkg := path.Split(imp.Path)
 		if _, ok := cu.Prefixes[imp.Alias]; ok {
 			found[imp] = true
 		} else if _, ok := cu.Prefixes[pkg]; ok {
