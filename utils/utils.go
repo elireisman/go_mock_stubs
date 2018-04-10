@@ -67,10 +67,11 @@ func FormatRetStmt(args *ast.FieldList) string {
 		case "error":
 			rets = append(rets, "nil")
 		default:
-			if strings.HasPrefix(rType, "map") || strings.HasPrefix(rType, "[") || strings.HasPrefix(rType, "chan") {
+			if strings.HasPrefix(rType, "map") || strings.HasPrefix(rType, "[") ||
+				strings.HasPrefix(rType, "chan") || strings.HasPrefix(rType, `...`) {
 				// map, chan or array/slice type
 				rets = append(rets, "nil")
-			} else if strings.HasPrefix(rType, `*`) || strings.HasPrefix(rType, `...`) {
+			} else if strings.HasPrefix(rType, `*`) {
 				// it's a pointer type
 				rets = append(rets, "nil")
 			} else if rType == `interface{}` {
@@ -89,18 +90,12 @@ func ParseType(t interface{}) string {
 	_, path := WalkTypePath(t, []string{})
 	ret := ""
 
-	// TODO: recurse here, skip dot-paths for *, ..., and [] (maybe more prefixes?) for multi-dim or double ptr etc.
+	ndx := 0
 	if len(path) > 0 {
-		if path[0] == `*` {
-			ret = `*` + strings.Join(path[1:], `.`)
-		} else if path[0] == `...` {
-			ret = `...` + strings.Join(path[1:], `.`)
-		} else if path[0] == `[]` {
-			ret = `[]` + strings.Join(path[1:], `.`)
-
-		} else {
-			ret = strings.Join(path, `.`)
+		for path[ndx] == `*` || path[ndx] == `...` || path[ndx] == `[]` {
+			ndx++
 		}
+		ret = strings.Join(path[:ndx], "") + strings.Join(path[ndx:], `.`)
 	}
 
 	return ret
@@ -131,9 +126,13 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 		path = append(path, `[]`)
 		t, path = WalkTypePath(elem.Elt, path)
 
-		//case *ast.MapType:
+	case *ast.MapType:
+		path = append(path, `map`, `[`)
+		t, path = WalkTypePath(elem.Key, path)
+		path = append(path, `]`)
+		t, path = WalkTypePath(elem.Value, path)
 
-		//case *ast.ChanType:
+	//case *ast.ChanType:
 
 	default:
 		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v", elem, elem))
