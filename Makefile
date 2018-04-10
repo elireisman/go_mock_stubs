@@ -7,5 +7,6 @@ setup:
 	go get -u golang.org/x/tools/cmd/goimports
 
 build: *.go
-	goimports -w main.go && go build -o stubber -v main.go
+	find . -type f -name '*.go' -exec goimports -w {} \;
+	go build -o stubber -v main.go
 
