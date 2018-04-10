@@ -6,7 +6,7 @@ along with stubbing out a mock struct suitable for use in unit testing. This is 
 ```bash
 # from repo root dir:
 make
-./stubber --source=path/to/client.go > client_mock.go
+./stubber --source-file=path/to/client.go > client_mock.go
 ```
 
 #### Status
