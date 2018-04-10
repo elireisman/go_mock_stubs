@@ -7,9 +7,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"html/template"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 const (
@@ -141,7 +141,7 @@ func main() {
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
 				rName, rType := GlobalScope, GlobalScope
-				if len(fn.Recv.List) > 0 {
+				if fn.Recv != nil && len(fn.Recv.List) > 0 {
 					if ptrExpr, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
 						astID, _ := ptrExpr.X.(*ast.Ident)
 						rName, rType = fn.Recv.List[0].Names[0].Name, astID.Name
@@ -206,6 +206,10 @@ func extractPkgPrefix(unit *CompilationUnit, t string) {
 }
 
 func formatRetStmt(args *ast.FieldList) string {
+	if args == nil {
+		return "return"
+	}
+
 	rets := []string{}
 	for _, f := range args.List {
 		rType := parseType(f.Type)
@@ -225,13 +229,16 @@ func formatRetStmt(args *ast.FieldList) string {
 		case "error":
 			rets = append(rets, "nil")
 		default:
-			if strings.Contains(rType, "map") || strings.Contains(rType, "[") {
+			if strings.HasPrefix(rType, "map") || strings.HasPrefix(rType, "[") || strings.HasPrefix(rType, "chan") {
+				// map, chan or array/slice type
 				rets = append(rets, "nil")
-			} else if _, ok := f.Type.(*ast.StarExpr); ok {
+			} else if strings.HasPrefix(rType, `*`) || strings.HasPrefix(rType, `...`) {
 				// it's a pointer type
 				rets = append(rets, "nil")
+			} else if rType == `interface{}` {
+				rets = append(rets, `interface{}`)
 			} else {
-				// OK, let's assume from here its a map, slice/array, or struct (...waves hands...)
+				// OK, let's assume it's a struct (...waves hands...)
 				rets = append(rets, rType+"{}")
 			}
 		}
@@ -243,11 +250,17 @@ func formatRetStmt(args *ast.FieldList) string {
 func parseType(t interface{}) string {
 	_, path := walkTypePath(t, []string{})
 	ret := ""
-	if path[0] == `*` {
-		ret = "*" + strings.Join(path[1:], `.`)
-	} else {
-		ret = strings.Join(path, `.`)
+
+	if len(path) > 0 {
+		if path[0] == `*` {
+			ret = `*` + strings.Join(path[1:], `.`)
+		} else if path[0] == `...` {
+			ret = `...` + strings.Join(path[1:], `.`)
+		} else {
+			ret = strings.Join(path, `.`)
+		}
 	}
+
 	return ret
 }
 
@@ -264,6 +277,22 @@ func walkTypePath(t interface{}, path []string) (interface{}, []string) {
 		t, path = walkTypePath(elem.X, path)
 		t, path = walkTypePath(elem.Sel, path)
 
+	case *ast.Ellipsis:
+		path = append(path, `...`)
+		t, path = walkTypePath(elem.Elt, path)
+
+	case *ast.InterfaceType:
+		path = append(path, `interface{}`)
+
+	case *ast.ArrayType:
+		// TODO: handle fixed size array with t.Len field "[%d]" style
+		path = append(path, `[]`)
+		t, path = walkTypePath(elem.Elt, path)
+
+		//case *ast.MapType:
+
+		//case *ast.ChanType:
+
 	default:
 		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v", elem, elem))
 	}
@@ -272,14 +301,16 @@ func walkTypePath(t interface{}, path []string) (interface{}, []string) {
 }
 
 func formatArgs(args *ast.FieldList) []string {
-	var out []string
-	for _, f := range args.List {
-		found := parseType(f.Type)
-		// TODO: handle complex non-ptr types too!
-		if len(f.Names) > 0 {
-			out = append(out, fmt.Sprintf("%s %s", f.Names[0], found))
-		} else {
-			out = append(out, fmt.Sprintf("%s", found))
+	out := []string{}
+	if args != nil {
+		for _, f := range args.List {
+			found := parseType(f.Type)
+			// TODO: handle complex non-ptr types too!
+			if len(f.Names) > 0 {
+				out = append(out, fmt.Sprintf("%s %s", f.Names[0], found))
+			} else {
+				out = append(out, fmt.Sprintf("%s", found))
+			}
 		}
 	}
 
