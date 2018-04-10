@@ -147,6 +147,12 @@ func main() {
 						rName, rType = fn.Recv.List[0].Names[0].Name, astID.Name
 					}
 				}
+
+				// don't pick up functions that don't have a reciever (i.e. globals)
+				if rName == "" {
+					return true
+				}
+
 				sig := Signature{
 					Name:       fn.Name.Name,
 					RcvrName:   rName,
