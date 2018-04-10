@@ -6,6 +6,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
+	"os"
 
 	"github.com/elireisman/go_mock_stubs/tree"
 	"github.com/elireisman/go_mock_stubs/utils"
@@ -20,9 +22,9 @@ package {{.Pkg}}
 {{.FormatImports}}
 
 {{range $rcvr, $sigs := .Funcs}}
-
 type {{$x := index $sigs 0}}{{$x.RcvrType}} struct { }
-type Iface{{$rcvr}} interface {
+
+type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}}
 {{end}}}
 {{end}}
@@ -36,13 +38,13 @@ type Iface{{$rcvr}} interface {
 
 var (
 	SourceFile string
-	Data       *tree.CompilationUnit
+	StdOut     bool
 )
 
 func main() {
 	flag.StringVar(&SourceFile, "source-file", "example.go", "the Golang file to parse")
+	flag.BoolVar(&StdOut, "stdout", false, "stream code to stdout rather than written to a *_mock.go file")
 	flag.Parse()
-	//destFilePath := utils.BuildDest()
 
 	fileSet := token.NewFileSet()
 	node, err := parser.ParseFile(fileSet, SourceFile, nil, parser.ParseComments)
@@ -105,7 +107,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	if StdOut {
+		fmt.Println(out.String())
+	} else {
+		destFilePath := utils.BuildDest(SourceFile)
+		if ioutil.WriteFile(destFilePath, out.Bytes(), os.FileMode(0664)); err != nil {
+			panic(fmt.Sprintf("failed to write output to %q, error: %s", destFilePath, err))
+		}
+	}
 
-	fmt.Println(out)
 	fmt.Println()
 }

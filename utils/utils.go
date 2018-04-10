@@ -4,26 +4,25 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
-	"html/template"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/elireisman/go_mock_stubs/tree"
 )
 
-func Render(unit *tree.CompilationUnit, mockTemplate string) (string, error) {
+func Render(unit *tree.CompilationUnit, mockTemplate string) (bytes.Buffer, error) {
+	var output bytes.Buffer
 	tmpl, err := template.New("mock").Parse(mockTemplate)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %s", err)
+		return output, fmt.Errorf("failed to parse template: %s", err)
 	}
 
-	var output bytes.Buffer
 	if err := tmpl.Execute(&output, unit); err != nil {
-		return "", fmt.Errorf("failed to resolve output string from template: %s", err)
+		return output, fmt.Errorf("failed to resolve output string from template: %s", err)
 	}
 
-	// TODO: maybe output.Bytes() instead?
-	return output.String(), nil
+	return output, nil
 }
 
 func ToMock(t string) string {
@@ -161,10 +160,13 @@ func FormatArgs(args *ast.FieldList) []string {
 }
 
 func BuildDest(sourceFile string) string {
-	if len(sourceFile) == 0 || sourceFile[len(sourceFile)-3:] != ".go" {
+	if len(sourceFile) == 0 || filepath.Ext(sourceFile) != ".go" {
 		panic(fmt.Sprintf("illegal argument to --source, got: %q", sourceFile))
 	}
 
-	mockFile := filepath.Base(sourceFile)[:len(sourceFile)-3] + "_mock.go"
-	return filepath.Dir(sourceFile) + mockFile
+	dir := filepath.Dir(sourceFile)
+	base := filepath.Base(sourceFile)
+	mockFile := base[:len(base)-3] + "_mock.go"
+
+	return dir + "/" + mockFile
 }
