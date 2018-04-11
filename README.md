@@ -8,9 +8,9 @@ An experiment to play with `go/ast` functionality. The tool generates unit test 
 make
 
 # print output mock code to stdout
-./stubber --source-file=path/to/client.go --stdout
+./stubber --source-file=example/one.go --stdout
 
-# drop file named thing_mock.go in same dir as source file, ready to compile
-./stubber --source=file=path/to/awesome/thing.go
+# writes output as file example/one_mock.go
+./stubber --source=file=example/one.go
 ```
 

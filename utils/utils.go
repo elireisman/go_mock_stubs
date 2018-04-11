@@ -36,10 +36,12 @@ func ToMock(t string) string {
 	return strings.Join(parts[:last], `.`) + sep + "mock" + parts[last]
 }
 
-func ExtractPkgPrefix(unit *tree.CompilationUnit, t string) {
-	parts := strings.Split(t, `.`)
-	if len(parts) > 0 && parts[0] != "" {
-		unit.Prefixes[parts[0]] = true
+func ExtractPkgPrefix(unit *tree.CompilationUnit, path []string) {
+	for ndx, elem := range path {
+		if elem == `.` {
+			unit.Prefixes[path[ndx-1]] = true
+			return
+		}
 	}
 }
 
@@ -50,7 +52,9 @@ func FormatRetStmt(args *ast.FieldList) string {
 
 	rets := []string{}
 	for _, f := range args.List {
-		rType := ParseType(f.Type)
+		_, path := ParseType(f.Type, []string{})
+		rType := strings.Join(path, "")
+
 		switch rType {
 		case "int", "int8", "int16", "int32", "int64",
 			"uint", "uint8", "uint16", "uint32", "uint64",
@@ -87,29 +91,23 @@ func FormatRetStmt(args *ast.FieldList) string {
 
 	return "return " + strings.Join(rets, ", ")
 }
-
-func ParseType(t interface{}) string {
-	_, path := WalkTypePath(t, []string{})
-	return strings.Join(path, "")
-}
-
-func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
+func ParseType(t interface{}, path []string) (interface{}, []string) {
 	switch elem := t.(type) {
 	case *ast.Ident:
 		path = append(path, elem.Name)
 
 	case *ast.StarExpr:
 		path = append(path, `*`)
-		t, path = WalkTypePath(elem.X, path)
+		t, path = ParseType(elem.X, path)
 
 	case *ast.SelectorExpr:
-		t, path = WalkTypePath(elem.X, path)
+		t, path = ParseType(elem.X, path)
 		path = append(path, `.`)
-		t, path = WalkTypePath(elem.Sel, path)
+		t, path = ParseType(elem.Sel, path)
 
 	case *ast.Ellipsis:
 		path = append(path, `...`)
-		t, path = WalkTypePath(elem.Elt, path)
+		t, path = ParseType(elem.Elt, path)
 
 	case *ast.InterfaceType:
 		// TODO: deal with elem.Methods here?
@@ -122,13 +120,13 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 			fmt.Printf("[DEBUG] Array Size: %+v\n", elem.Len)
 		}
 		path = append(path, `]`)
-		t, path = WalkTypePath(elem.Elt, path)
+		t, path = ParseType(elem.Elt, path)
 
 	case *ast.MapType:
 		path = append(path, `map`, `[`)
-		t, path = WalkTypePath(elem.Key, path)
+		t, path = ParseType(elem.Key, path)
 		path = append(path, `]`)
-		t, path = WalkTypePath(elem.Value, path)
+		t, path = ParseType(elem.Value, path)
 
 	case *ast.ChanType:
 		if elem.Dir == 2 {
@@ -139,7 +137,7 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 			path = append(path, `<-`)
 		}
 		path = append(path, ` `)
-		t, path = WalkTypePath(elem.Value, path)
+		t, path = ParseType(elem.Value, path)
 
 	default:
 		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v", elem, elem))
@@ -152,17 +150,14 @@ func FormatArgs(unit *tree.CompilationUnit, args *ast.FieldList) []string {
 	out := []string{}
 	if args != nil {
 		for _, f := range args.List {
-			found := ParseType(f.Type)
+			_, path := ParseType(f.Type, []string{})
+			resolved := strings.Join(path, "")
 
-			split := strings.Split(found, `.`)
-			if len(split) > 1 {
-				ExtractPkgPrefix(unit, split[0])
-			}
-
+			ExtractPkgPrefix(unit, path)
 			if len(f.Names) > 0 {
-				out = append(out, fmt.Sprintf("%s %s", f.Names[0], found))
+				out = append(out, fmt.Sprintf("%s %s", f.Names[0], resolved))
 			} else {
-				out = append(out, fmt.Sprintf("%s", found))
+				out = append(out, fmt.Sprintf("%s", resolved))
 			}
 		}
 	}
