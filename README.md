@@ -1,10 +1,8 @@
 #### The Idea
-An experiment to play with `go/ast` functionality. Given an input `blah.go` file, the tool will parse out public API object exposed as pointers to structs, and construct an actual (testable) interface for each,
-along with stubbing out a mock struct suitable for use in unit testing. This is based on friction encounted while writing unit tests and mocks for otherwise terrific libraries in Golang that are written this way (names withheld to protect the guilty!)
-
+An experiment to play with `go/ast` functionality. The tool generates unit test mocks from Golang source files where the public API is exposed as pointers to structs rather than interfaces. Given a Golang source code file, the tool will extract any public structs and their public methods, and generate a matching interface along with a package-private mock struct implementing no-ops for all methods.
 
 #### Example
-How to build and run the tool:
+
 ```bash
 # from repo root dir, build the binary:
 make
@@ -15,12 +13,4 @@ make
 # drop file named thing_mock.go in same dir as source file, ready to compile
 ./stubber --source=file=path/to/awesome/thing.go
 ```
-
-
-#### Status
-Purpose is _not_ to reinvent other more robust mocking libs, just to get to know `go/ast` a bit better.
-
-On the other hand, at this point it handles all the input Golang source I throw at it, including all primitive, pointer, and struct types, N-dimensional arrays, chans (uni- and bi-directional), maps, interfaces, packages, imports with aliases, and even correctly pulling in only the imports the stub file requires, not the whole set the input source includes.
-I suspect there are likely still a few corner cases around return values in the mock methods for some interface types. If you decide to try this tool out and you run afoul of such a case, please file an issue!
-
 
