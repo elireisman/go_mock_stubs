@@ -88,17 +88,7 @@ func FormatRetStmt(args *ast.FieldList) string {
 
 func ParseType(t interface{}) string {
 	_, path := WalkTypePath(t, []string{})
-	ret := ""
-
-	ndx := 0
-	if len(path) > 0 {
-		for path[ndx] == `*` || path[ndx] == `...` || path[ndx] == `[]` {
-			ndx++
-		}
-		ret = strings.Join(path[:ndx], "") + strings.Join(path[ndx:], `.`)
-	}
-
-	return ret
+	return strings.Join(path, "")
 }
 
 func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
@@ -112,6 +102,7 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 
 	case *ast.SelectorExpr:
 		t, path = WalkTypePath(elem.X, path)
+		path = append(path, `.`)
 		t, path = WalkTypePath(elem.Sel, path)
 
 	case *ast.Ellipsis:
@@ -123,7 +114,11 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 
 	case *ast.ArrayType:
 		// TODO: handle fixed size array with t.Len field "[%d]" style
-		path = append(path, `[]`)
+		path = append(path, `[`)
+		if elem.Len != nil {
+			fmt.Printf("[DEBUG] Array Size: %+v", elem.Len)
+		}
+		path = append(path, `]`)
 		t, path = WalkTypePath(elem.Elt, path)
 
 	case *ast.MapType:
