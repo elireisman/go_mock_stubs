@@ -67,15 +67,17 @@ func FormatRetStmt(args *ast.FieldList) string {
 		case "error":
 			rets = append(rets, "nil")
 		default:
-			if strings.HasPrefix(rType, "map") || strings.HasPrefix(rType, "[") ||
-				strings.HasPrefix(rType, "chan") || strings.HasPrefix(rType, `...`) {
-				// map, chan or array/slice type
+			if strings.HasPrefix(rType, "map") || strings.HasPrefix(rType, "[") || strings.HasPrefix(rType, `...`) {
+				// map or array/slice type
+				rets = append(rets, "nil")
+			} else if strings.HasPrefix(rType, "<-") || strings.HasPrefix(rType, "chan") {
+				// chan types
 				rets = append(rets, "nil")
 			} else if strings.HasPrefix(rType, `*`) {
 				// it's a pointer type
 				rets = append(rets, "nil")
 			} else if rType == `interface{}` {
-				rets = append(rets, `interface{}`)
+				rets = append(rets, `nil`)
 			} else {
 				// OK, let's assume it's a struct (...waves hands...)
 				rets = append(rets, rType+"{}")
@@ -110,13 +112,14 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 		t, path = WalkTypePath(elem.Elt, path)
 
 	case *ast.InterfaceType:
+		// TODO: deal with elem.Methods here?
 		path = append(path, `interface{}`)
 
 	case *ast.ArrayType:
-		// TODO: handle fixed size array with t.Len field "[%d]" style
 		path = append(path, `[`)
 		if elem.Len != nil {
-			fmt.Printf("[DEBUG] Array Size: %+v", elem.Len)
+			// TODO: handle fixed size array with t.Len field "[%d]" style
+			fmt.Printf("[DEBUG] Array Size: %+v\n", elem.Len)
 		}
 		path = append(path, `]`)
 		t, path = WalkTypePath(elem.Elt, path)
@@ -127,7 +130,16 @@ func WalkTypePath(t interface{}, path []string) (interface{}, []string) {
 		path = append(path, `]`)
 		t, path = WalkTypePath(elem.Value, path)
 
-	//case *ast.ChanType:
+	case *ast.ChanType:
+		if elem.Dir == 2 {
+			path = append(path, `<-`)
+		}
+		path = append(path, `chan`)
+		if elem.Dir == 1 {
+			path = append(path, `<-`)
+		}
+		path = append(path, ` `)
+		t, path = WalkTypePath(elem.Value, path)
 
 	default:
 		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v", elem, elem))
