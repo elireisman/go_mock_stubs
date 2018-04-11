@@ -12,5 +12,8 @@ make
 
 # writes output as file example/one_mock.go
 ./stubber --source=file=example/one.go
+
+# better example
+wget -q https://raw.githubusercontent.com/olivere/elastic/release-branch.v6/client.go && ./stubber --source-file=client.go --stdout
 ```
 
