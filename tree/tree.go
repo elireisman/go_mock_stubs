@@ -158,14 +158,11 @@ func (f Field) Render() string {
 
 // only ever used on receiver which will be "Type" or "pkg.Type"
 func (f Field) ToMock() string {
-	parts := strings.Split(f.GetType(), `.`)
-	last := len(parts) - 1
-	sep := ""
-	if last > 0 {
-		sep = `.`
+	if len(f.Type) != 2 {
+		panic(fmt.Sprintf("failed to render mock struct from orig type: %s", f.GetType()))
 	}
 
-	return strings.Join(parts[:last], `.`) + sep + "mock" + parts[last]
+	return "mock" + f.Type[1]
 }
 
 type Return uint8
