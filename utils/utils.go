@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/ast"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	"github.com/elireisman/go_mock_stubs/tree"
@@ -25,17 +24,6 @@ func Render(unit *tree.CompilationUnit, mockTemplate string) (bytes.Buffer, erro
 	return output, nil
 }
 
-func ToMock(t string) string {
-	parts := strings.Split(t, `.`)
-	last := len(parts) - 1
-	sep := ""
-	if last > 0 {
-		sep = `.`
-	}
-
-	return strings.Join(parts[:last], `.`) + sep + "mock" + parts[last]
-}
-
 func ExtractPkgPrefix(unit *tree.CompilationUnit, path []string) {
 	for ndx, elem := range path {
 		if elem == `.` {
@@ -45,124 +33,17 @@ func ExtractPkgPrefix(unit *tree.CompilationUnit, path []string) {
 	}
 }
 
-func FormatRetStmt(args *ast.FieldList) string {
-	if args == nil {
-		return "return"
-	}
-
-	rets := []string{}
-	for _, f := range args.List {
-		_, path := ParseType(f.Type, []string{})
-		rType := strings.Join(path, "")
-
-		switch rType {
-		case "int", "int8", "int16", "int32", "int64",
-			"uint", "uint8", "uint16", "uint32", "uint64",
-			"float32", "float64":
-			rets = append(rets, "0")
-		case "string":
-			rets = append(rets, `""`)
-		case "bool":
-			rets = append(rets, "false")
-		case "rune":
-			rets = append(rets, "rune(0)")
-		case "complex64", "complex128":
-			rets = append(rets, "complex(0, 0)")
-		case "error":
-			rets = append(rets, "nil")
-		default:
-			if strings.HasPrefix(rType, "map") || strings.HasPrefix(rType, "[") || strings.HasPrefix(rType, `...`) {
-				// map or array/slice type
-				rets = append(rets, "nil")
-			} else if strings.HasPrefix(rType, "<-") || strings.HasPrefix(rType, "chan") {
-				// chan types
-				rets = append(rets, "nil")
-			} else if strings.HasPrefix(rType, `*`) {
-				// it's a pointer type
-				rets = append(rets, "nil")
-			} else if rType == `interface{}` {
-				rets = append(rets, `nil`)
-			} else {
-				// OK, let's assume it's a struct (...waves hands...)
-				rets = append(rets, rType+"{}")
-			}
-		}
-	}
-
-	return "return " + strings.Join(rets, ", ")
-}
-func ParseType(t interface{}, path []string) (interface{}, []string) {
-	switch elem := t.(type) {
-	case *ast.Ident:
-		path = append(path, elem.Name)
-
-	case *ast.StarExpr:
-		path = append(path, `*`)
-		t, path = ParseType(elem.X, path)
-
-	case *ast.SelectorExpr:
-		t, path = ParseType(elem.X, path)
-		path = append(path, `.`)
-		t, path = ParseType(elem.Sel, path)
-
-	case *ast.Ellipsis:
-		path = append(path, `...`)
-		t, path = ParseType(elem.Elt, path)
-
-	case *ast.InterfaceType:
-		// TODO: deal with elem.Methods here?
-		path = append(path, `interface{}`)
-
-	case *ast.ArrayType:
-		path = append(path, `[`)
-		if elem.Len != nil {
-			// TODO: handle fixed size array with t.Len field "[%d]" style
-			fmt.Printf("[DEBUG] Array Size: %+v\n", elem.Len)
-		}
-		path = append(path, `]`)
-		t, path = ParseType(elem.Elt, path)
-
-	case *ast.MapType:
-		path = append(path, `map`, `[`)
-		t, path = ParseType(elem.Key, path)
-		path = append(path, `]`)
-		t, path = ParseType(elem.Value, path)
-
-	case *ast.ChanType:
-		if elem.Dir == 2 {
-			path = append(path, `<-`)
-		}
-		path = append(path, `chan`)
-		if elem.Dir == 1 {
-			path = append(path, `<-`)
-		}
-		path = append(path, ` `)
-		t, path = ParseType(elem.Value, path)
-
-	default:
-		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v", elem, elem))
-	}
-
-	return t, path
-}
-
-func FormatArgs(unit *tree.CompilationUnit, args *ast.FieldList) []string {
-	out := []string{}
+func FormatArgs(unit *tree.CompilationUnit, args *ast.FieldList) []tree.Field {
+	fields := []tree.Field{}
 	if args != nil {
 		for _, f := range args.List {
-			_, path := ParseType(f.Type, []string{})
-			resolved := strings.Join(path, "")
-
-			ExtractPkgPrefix(unit, path)
-			if len(f.Names) > 0 {
-				out = append(out, fmt.Sprintf("%s %s", f.Names[0], resolved))
-			} else {
-				out = append(out, fmt.Sprintf("%s", resolved))
-			}
+			field := tree.NewField(f)
+			fields = append(fields, field)
+			ExtractPkgPrefix(unit, field.Type)
 		}
 	}
 
-	return out
+	return fields
 }
 
 func BuildDest(sourceFile string) string {

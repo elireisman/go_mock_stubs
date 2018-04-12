@@ -22,7 +22,7 @@ package {{.Pkg}}
 {{.FormatImports}}
 
 {{range $rcvr, $sigs := .Funcs}}
-type {{$x := index $sigs 0}}{{$x.RcvrType}} struct { }
+type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
 
 type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}}
@@ -30,7 +30,7 @@ type {{$rcvr}}Iface interface {
 {{end}}
 
 {{range $rcvr, $sigs := .Funcs}}
-{{range $sig := $sigs}}func ({{$sig.RcvrName}} *{{$sig.RcvrType}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { {{$sig.ReturnStmt}} }
+{{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { {{$sig.BuildReturnStmt}} }
 {{end}}
 {{end}}
 `
@@ -87,12 +87,10 @@ func main() {
 				}
 
 				sig := tree.Signature{
-					Name:       fn.Name.Name,
-					RcvrName:   rName,
-					RcvrType:   utils.ToMock(rType),
-					Args:       utils.FormatArgs(unit, fn.Type.Params),
-					Returns:    utils.FormatArgs(unit, fn.Type.Results),
-					ReturnStmt: utils.FormatRetStmt(fn.Type.Results),
+					Name:     fn.Name.Name,
+					Receiver: tree.NewField(fn.Recv.List[0]),
+					Args:     utils.FormatArgs(unit, fn.Type.Params),
+					Returns:  utils.FormatArgs(unit, fn.Type.Results),
 				}
 
 				unit.Funcs[rType] = append(unit.Funcs[rType], sig)
