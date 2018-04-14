@@ -8,6 +8,7 @@ import (
 )
 
 type CompilationUnit struct {
+	Source   string
 	Pkg      string
 	Imports  []Import
 	Prefixes map[string]bool

@@ -1,49 +1,15 @@
 package example
 
 import (
-	"fmt" // not needed for mocks
-	"log"
-	"strings" // not needed for mocks
-	"sync"
-	"sync/atomic" // not needed for mocks
+	"fmt"
+	"net/http"
 )
 
-type privateSoNotMocked struct {
-	Nothing bool
+type Fruit struct {
+	Tasty bool
+	Name  string
 }
 
-type Person struct {
-	log  *log.Logger
-	lock sync.Mutex
-	name string
-	age  uint32
-}
-
-func (p *Person) ShowName(other string, maybe bool) error {
-	return strings.Join([]string{p.name, other}, ",")
-}
-
-func (p *Person) GuessAge(guesses map[string]uint32, hitEvent chan<- bool) ([][]byte, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	for name, guess := range guesses {
-		if p.age == guess {
-			log.Printf("matched %q", name)
-			hitEvent <- true
-		}
-	}
-
-	return nil, fmt.Errorf("ouch: %+v", guesses)
-}
-
-func (p *Person) GetOlder(triplePtr ***uint32) (*log.Logger, *uint32, <-chan bool) {
-	result := atomic.AddUint32(&p.age, 1)
-	result = atomic.AddUint32((**triplePtr), result)
-
-	return p.log, &result, make(<-chan bool)
-}
-
-func (p *Person) notBeingMocked() {
-	// no-op
+func (f *Fruit) Handler(w http.ResponseWriter, r *http.Rrequest) {
+	return http.Error(w, fmt.Sprintf("Sorry, tasty %s costs money!", f.Name), http.PaymentRequired)
 }

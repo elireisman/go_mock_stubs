@@ -25,6 +25,7 @@ func Render(unit *tree.CompilationUnit, mockTemplate string) (bytes.Buffer, erro
 }
 
 func ExtractPkgPrefix(unit *tree.CompilationUnit, path []string) {
+
 	for ndx, elem := range path {
 		if elem == `.` {
 			unit.Prefixes[path[ndx-1]] = true
