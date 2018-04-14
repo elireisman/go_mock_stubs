@@ -20,12 +20,10 @@ const (
 
 {{.FormatImports}}{{$unit := .}}
 {{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
-
 type {{$rcvr}}Iface interface {
-{{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}}
+{{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
 {{end}}}{{end}}
-{{end}}
-{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
+{{end}}{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 {{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { {{$sig.BuildReturnStmt}} }
 {{end}}{{end}}{{end}}
 `
@@ -52,8 +50,7 @@ func main() {
 	// same struct across multiple source files are properly mocked
 	outPkgs := map[string]map[string][]tree.Signature{}
 
-	// maintain mapping of filename to file render data for printing each
-	// compilation unit holds a ref to the global struct map for it's pkg
+	// maintain mapping of filename to file render data for printing
 	outFiles := map[string]tree.CompilationUnit{}
 
 	// iterate over each package, all files in each package.

@@ -8,12 +8,14 @@ An experiment to play with `go/ast` functionality. The tool generates unit test 
 make
 
 # print output mock code to stdout
-./stubber --source-file=example/one.go --stdout
+./gen_stubs --source-dir=examples --stdout
 
-# writes output as file example/one_mock.go
-./stubber --source=file=example/one.go
+# writes output files based on input file paths, as: example/*_mock.go
+./gen_stubs --source=dir=examples
 
 # better example
-wget -q https://raw.githubusercontent.com/olivere/elastic/release-branch.v6/client.go && ./stubber --source-file=client.go --stdout
+mkdir tmp
+pushd tmp && wget -q https://raw.githubusercontent.com/olivere/elastic/release-branch.v6/client.go && popd
+./gen_stubs --source-dir=tmp --stdout
 ```
 

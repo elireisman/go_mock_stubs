@@ -80,9 +80,9 @@ func (s Signature) ListReturns() string {
 	case 0:
 		return ""
 	case 1:
-		return s.Returns[0].Render()
+		return " " + s.Returns[0].Render()
 	default:
-		return "(" + strings.Join(s.GetDeclaredReturns(), ", ") + ")"
+		return " (" + strings.Join(s.GetDeclaredReturns(), ", ") + ")"
 	}
 }
 

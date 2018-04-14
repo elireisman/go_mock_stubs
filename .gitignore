@@ -1,2 +1,2 @@
-stubber
+gen_stubs
 *_mock.go
