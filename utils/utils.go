@@ -17,8 +17,12 @@ func Render(unit *tree.CompilationUnit, mockTemplate string) (bytes.Buffer, erro
 		return output, fmt.Errorf("failed to parse template: %s", err)
 	}
 
-	if err := tmpl.Execute(&output, unit); err != nil {
-		return output, fmt.Errorf("failed to resolve output string from template: %s", err)
+	// if this compilation unit (file) contains struct decls, we print the
+	// mock struct, API stubs, and public interface in a*_mock.go file
+	if len(unit.DeclHere) > 0 {
+		if err := tmpl.Execute(&output, unit); err != nil {
+			return output, fmt.Errorf("failed to resolve output string from template: %s", err)
+		}
 	}
 
 	return output, nil

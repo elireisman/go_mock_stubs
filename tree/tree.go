@@ -11,6 +11,7 @@ type CompilationUnit struct {
 	Source   string
 	Pkg      string
 	Imports  []Import
+	DeclHere map[string]bool
 	Prefixes map[string]bool
 	Funcs    map[string][]Signature
 }
@@ -37,6 +38,11 @@ func (cu *CompilationUnit) FormatImports() string {
 	rendered += ")\n"
 
 	return rendered
+}
+
+func (cu *CompilationUnit) IsDeclaredHere(receiver string) bool {
+	_, found := cu.DeclHere[receiver]
+	return found
 }
 
 type Import struct {
@@ -217,6 +223,8 @@ func ParseReturn(t interface{}, current Return) Return {
 	case *ast.SelectorExpr:
 		fmt.Printf("[DEBUG] *ast.SelectorExpr: %+v\n", elem)
 		return ParseReturn(elem.Sel, current)
+
+		//case *ast.StructType:
 
 	default:
 		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v\n", elem, elem))

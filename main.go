@@ -18,19 +18,16 @@ const (
 
 	MockTemplate = `package {{.Pkg}}
 
-{{.FormatImports}}
-
-{{range $rcvr, $sigs := .Funcs}}type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
+{{.FormatImports}}{{$unit := .}}
+{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
 
 type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}}
-{{end}}}
+{{end}}}{{end}}
 {{end}}
-
-{{range $rcvr, $sigs := .Funcs}}
+{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 {{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { {{$sig.BuildReturnStmt}} }
-{{end}}
-{{end}}
+{{end}}{{end}}{{end}}
 `
 )
 
@@ -67,31 +64,38 @@ func main() {
 			outPkgs[pkgName] = map[string][]tree.Signature{}
 		}
 
-		// TODO: why no imports in node, is this an *ast.File like before or not?!?
-		// TODO: need to parse out actual struct decls per file so we don't redeclare b/c global func mapping?
-
 		for fileName, node := range pkg.Files {
 
 			unit := tree.CompilationUnit{
 				Pkg:      pkgName,
 				Imports:  []tree.Import{},
+				DeclHere: map[string]bool{},
 				Prefixes: map[string]bool{},
 				Funcs:    outPkgs[pkgName],
 			}
-			outFiles[fileName] = unit
 
 			for _, impt := range node.Imports {
 				alias := ""
 				if impt.Name != nil {
 					alias = impt.Name.Name
 				}
-				next := tree.Import{Alias: alias, Path: impt.Path.Value}
+				path := impt.Path.Value[1 : len(impt.Path.Value)-1]
+				next := tree.Import{Alias: alias, Path: path}
 				unit.Imports = append(unit.Imports, next)
 			}
 
 			// extract metadata from any methods with a pointer to a struct as a receiver
 			ast.Inspect(node, func(n ast.Node) bool {
-				if fn, ok := n.(*ast.FuncDecl); ok {
+				if ts, ok := n.(*ast.TypeSpec); ok {
+					// collect mapping of public structs declared in THIS file
+					if _, ok := ts.Type.(*ast.StructType); ok {
+						if ts.Name != nil && ts.Name.IsExported() {
+							unit.DeclHere[ts.Name.Name] = true
+						}
+					}
+				} else if fn, ok := n.(*ast.FuncDecl); ok {
+					// collect all public struct method decls across files in pkg
+					// so that we can generate mock stubs with full API at struct decl site
 					if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
 						rName, rType := GlobalScope, GlobalScope
 						if fn.Recv != nil && len(fn.Recv.List) > 0 {
@@ -119,6 +123,9 @@ func main() {
 
 				return true
 			})
+
+			// record this compilation unit (file) in the output mapping
+			outFiles[fileName] = unit
 		}
 	}
 
@@ -130,6 +137,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		// empty output buffer means don't print the file, only print
+		// mock if source file contains struct declarations we're mocking
+		if len(out.Bytes()) == 0 {
+			continue
+		}
+
 		if StdOut {
 			fmt.Println(out.String())
 		} else {
