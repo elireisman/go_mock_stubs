@@ -21,8 +21,13 @@ make
 ./gen_stubs --source=dir=examples
 
 # better example
-mkdir tmp
+mkdir -p tmp
 pushd tmp && wget -q https://raw.githubusercontent.com/olivere/elastic/release-branch.v6/client.go && popd
 ./gen_stubs --source-dir=tmp --stdout
+
+# best example
+mkdir -p tmp
+pushd tmp && git clone https://github.com/olivere/elastic && popd
+./gen_stubs --source-dir=tmp/elastic
 ```
 
