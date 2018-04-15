@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/elireisman/go_mock_stubs/tree"
 	"github.com/elireisman/go_mock_stubs/utils"
@@ -25,24 +26,20 @@ package {{.Pkg}}
 {{.FormatImports}}
 
 {{range $rcvr, $sigs := .Funcs}}
-
 {{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
-
 type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
 {{end}}
 }
-{{end}}
-
-{{end}}
+{{end}}{{end}}
 
 {{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 {{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}} {
   panic("mock: stub method not implemented")
 }
-{{end}}
-{{end}}
+
+{{end}}{{end}}
 
 {{end}}
 `
@@ -58,7 +55,7 @@ func init() {
 	flag.StringVar(&SourceDir, "source-dir", "example", "the directory under which all Golang source files will be parsed")
 	flag.BoolVar(&StdOut, "stdout", false, "stream output code to stdout rather than writing to *_mock.go file under the source's dir")
 
-	MultiLineWS = regexp.MustCompile(`(\r?\n)(\r?\n)+`)
+	MultiLineWS = regexp.MustCompile(`\r?\n\r?\n(\r?\n)+`)
 }
 
 func main() {
@@ -165,7 +162,7 @@ func main() {
 		}
 
 		// all that whitespace for readability in MockTemplate comes at cost...
-		out := MultiLineWS.ReplaceAllString(raw.String(), "\n")
+		out := strings.Trim(MultiLineWS.ReplaceAllString(raw.String(), "\n\n"), " \t\r\n")
 
 		if StdOut {
 			fmt.Println()
