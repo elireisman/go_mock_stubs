@@ -82,11 +82,11 @@ func (s Signature) ListReturns() string {
 	case 1:
 		return " " + s.Returns[0].Render()
 	default:
-		return " (" + strings.Join(s.GetDeclaredReturns(), ", ") + ")"
+		return " (" + strings.Join(s.getDeclaredReturns(), ", ") + ")"
 	}
 }
 
-func (s Signature) GetDeclaredReturns() []string {
+func (s Signature) getDeclaredReturns() []string {
 	out := []string{}
 	for _, f := range s.Returns {
 		out = append(out, f.Render())
@@ -95,45 +95,9 @@ func (s Signature) GetDeclaredReturns() []string {
 	return out
 }
 
-// these are the computed zero values used in the block of methods stubbed out
-// for the mock struct created for each public interface
-func (s Signature) BuildReturnStmt() string {
-	if len(s.Returns) == 0 {
-		return "return"
-	}
-
-	rets := []string{}
-	for _, f := range s.Returns {
-		switch f.Value {
-		case Nil: // map, array/slice, ellipsis, chan, pointer, interface, error
-			rets = append(rets, "nil")
-		case Zero:
-			rets = append(rets, "0")
-		case Empty:
-			rets = append(rets, `""`)
-		case False:
-			rets = append(rets, "false")
-
-		// TODO: check these!
-		case Rune:
-			rets = append(rets, "rune(0)")
-		case Complex:
-			rets = append(rets, "complex(0, 0)")
-		case Struct:
-			rets = append(rets, f.GetType()+`{}`)
-		default:
-			// TODO: freak out here!
-			fmt.Printf("[DEBUG] failed to determine stubbable return type for: %s\n", f.GetType())
-		}
-	}
-
-	return "return " + strings.Join(rets, ", ")
-}
-
 type Field struct {
-	Name  string
-	Value Return
-	Type  []string
+	Name string
+	Type []string
 }
 
 func NewField(f *ast.Field) Field {
@@ -142,12 +106,10 @@ func NewField(f *ast.Field) Field {
 		rcvr = f.Names[0].Name
 	}
 	_, path := ParseType(f.Type, []string{})
-	retVal := ParseReturn(f.Type, Unknown)
 
 	return Field{
-		Name:  rcvr,
-		Value: retVal,
-		Type:  path,
+		Name: rcvr,
+		Type: path,
 	}
 }
 
@@ -170,65 +132,6 @@ func (f Field) ToMock() string {
 	}
 
 	return "mock" + f.Type[1]
-}
-
-type Return uint8
-
-const (
-	Unknown Return = iota
-	Nil
-	Zero
-	False
-	Empty
-	Rune
-	Complex
-	Byte
-	Struct
-)
-
-func ParseReturn(t interface{}, current Return) Return {
-	switch elem := t.(type) {
-
-	case *ast.Ident:
-		fmt.Printf("[DEBUG] *ast.Ident: %+v\n", elem)
-		switch elem.Name {
-		case "bool":
-			return False
-		case "rune":
-			return Rune
-		case "complex64", "complex128":
-			return Complex
-		case "byte":
-			return Byte
-		case "error":
-			return Nil
-		case "string":
-			return Empty
-		case "uint8", "uint16", "uint32", "uint64",
-			"int8", "int16", "int32", "int64", "int",
-			"uint", "uintptr", "float32", "float64":
-			return Zero
-
-		// TODO: handle wrapped primitive types like kakfa.Offset(0) ?
-
-		default:
-			return Struct
-		}
-
-	case *ast.StarExpr, *ast.Ellipsis, *ast.ArrayType,
-		*ast.MapType, *ast.ChanType, *ast.InterfaceType:
-		fmt.Printf("[DEBUG] %T: %+v\n", elem, elem)
-		return Nil
-
-	case *ast.SelectorExpr:
-		fmt.Printf("[DEBUG] *ast.SelectorExpr: %+v\n", elem)
-		return ParseReturn(elem.Sel, current)
-
-		//case *ast.StructType:
-
-	default:
-		panic(fmt.Sprintf("unknown child of *ast.Type (%T) in traversal: %+v\n", elem, elem))
-	}
 }
 
 func ParseType(t interface{}, path []string) (interface{}, []string) {
