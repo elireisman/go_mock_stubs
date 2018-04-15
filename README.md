@@ -6,7 +6,7 @@ An experiment to play with `go/ast` functionality. The tool generates unit test 
 After generating the method stubs, end users should:
 1. Replace calls to the public API exposed as a struct pointer `*example.Thing` with calls to the generated interface `example.ThingIface`
 2. Create a new struct embedding the generated `elastic.MockThing`, and implement only methods from the mock you'd like to test
-3. Write tests against the methods you converted in step one, supplying the mock implementation from step 2
+3. Write tests against the methods you converted in step 1, supplying the mock implementation from step 2
 
 
 #### Code Generation Example
