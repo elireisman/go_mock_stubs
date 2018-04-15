@@ -131,7 +131,7 @@ func (f Field) ToMock() string {
 		panic(fmt.Sprintf("failed to render mock struct from orig type: %s", f.GetType()))
 	}
 
-	return "mock" + f.Type[1]
+	return "Mock" + f.Type[1]
 }
 
 func ParseType(t interface{}, path []string) (interface{}, []string) {

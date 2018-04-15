@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"io/ioutil"
 	"os"
+	"regexp"
 
 	"github.com/elireisman/go_mock_stubs/tree"
 	"github.com/elireisman/go_mock_stubs/utils"
@@ -16,27 +17,53 @@ import (
 const (
 	GlobalScope = ""
 
-	MockTemplate = `package {{.Pkg}}
+	MockTemplate = `{{$unit := .}}
 
-{{.FormatImports}}{{$unit := .}}
-{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
+package {{.Pkg}}
+
+{{.FormatImports}}
+
+{{range $rcvr, $sigs := .Funcs}}
+
+{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
+type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
+
 type {{$rcvr}}Iface interface {
+
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
-{{end}}}{{end}}
-{{end}}{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
-{{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} { panic("mock: stub method not implemented") }
-{{end}}{{end}}{{end}}
+{{end}}
+
+}
+{{end}}
+
+{{end}}
+
+{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
+
+{{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}) {{$sig.ListReturns}} {
+  panic("mock: stub method not implemented")
+}
+{{end}}
+{{end}}
+
+{{end}}
 `
 )
 
 var (
-	SourceDir string
-	StdOut    bool
+	SourceDir   string
+	StdOut      bool
+	MultiLineWS *regexp.Regexp
 )
 
-func main() {
+func init() {
 	flag.StringVar(&SourceDir, "source-dir", "example", "the directory under which all Golang source files will be parsed")
 	flag.BoolVar(&StdOut, "stdout", false, "stream output code to stdout rather than writing to *_mock.go file under the source's dir")
+
+	MultiLineWS = regexp.MustCompile(`(\r?\n)+`)
+}
+
+func main() {
 	flag.Parse()
 
 	fileSet := token.NewFileSet()
@@ -130,21 +157,24 @@ func main() {
 	// we have the complete picture and can render the output files
 	fmt.Println()
 	for fileName, unit := range outFiles {
-		out, err := utils.Render(&unit, MockTemplate)
+		raw, err := utils.Render(&unit, MockTemplate)
 		if err != nil {
 			panic(err)
 		}
 		// empty output buffer means don't print the file, only print
 		// mock if source file contains struct declarations we're mocking
-		if len(out.Bytes()) == 0 {
+		if len(raw.Bytes()) == 0 {
 			continue
 		}
 
+		// all that whitespace for readability in MockTemplate comes at cost...
+		out := MultiLineWS.ReplaceAllString(raw.String(), "\n")
+
 		if StdOut {
-			fmt.Println(out.String())
+			fmt.Println(out)
 		} else {
 			destFilePath := utils.BuildDest(fileName)
-			if ioutil.WriteFile(destFilePath, out.Bytes(), os.FileMode(0664)); err != nil {
+			if ioutil.WriteFile(destFilePath, []byte(out), os.FileMode(0664)); err != nil {
 				panic(fmt.Sprintf("failed to write output to %q, error: %s", destFilePath, err))
 			}
 		}
