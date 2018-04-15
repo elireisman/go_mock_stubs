@@ -15,7 +15,7 @@ func (t *Thing) Since() time.Duration {
 }
 
 func (t *thing) betterNotImplementMe(shouldSkip true) bool {
-  return shouldSkip
+	return shouldSkip
 }
 
 func (t *Thing) GetWriter() io.Writer {
