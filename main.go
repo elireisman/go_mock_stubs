@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strconv"
 
 	"github.com/elireisman/go_mock_stubs/tree"
 	"github.com/elireisman/go_mock_stubs/utils"
@@ -29,17 +30,14 @@ package {{.Pkg}}
 type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
 
 type {{$rcvr}}Iface interface {
-
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
 {{end}}
-
 }
 {{end}}
 
 {{end}}
 
 {{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
-
 {{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}} {
   panic("mock: stub method not implemented")
 }
@@ -60,7 +58,7 @@ func init() {
 	flag.StringVar(&SourceDir, "source-dir", "example", "the directory under which all Golang source files will be parsed")
 	flag.BoolVar(&StdOut, "stdout", false, "stream output code to stdout rather than writing to *_mock.go file under the source's dir")
 
-	MultiLineWS = regexp.MustCompile(`(\r?\n)+`)
+	MultiLineWS = regexp.MustCompile(`(\r?\n)(\r?\n)+`)
 }
 
 func main() {
@@ -103,7 +101,7 @@ func main() {
 				if impt.Name != nil {
 					alias = impt.Name.Name
 				}
-				path := impt.Path.Value[1 : len(impt.Path.Value)-1]
+				path, _ := strconv.Unquote(impt.Path.Value)
 				next := tree.Import{Alias: alias, Path: path}
 				unit.Imports = append(unit.Imports, next)
 			}
