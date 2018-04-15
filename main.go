@@ -155,7 +155,6 @@ func main() {
 
 	// now that we've collected all the state across all the packages,
 	// we have the complete picture and can render the output files
-	fmt.Println()
 	for fileName, unit := range outFiles {
 		raw, err := utils.Render(&unit, MockTemplate)
 		if err != nil {
@@ -171,13 +170,15 @@ func main() {
 		out := MultiLineWS.ReplaceAllString(raw.String(), "\n")
 
 		if StdOut {
+			fmt.Println()
 			fmt.Println(out)
 		} else {
 			destFilePath := utils.BuildDest(fileName)
 			if ioutil.WriteFile(destFilePath, []byte(out), os.FileMode(0664)); err != nil {
 				panic(fmt.Sprintf("failed to write output to %q, error: %s", destFilePath, err))
 			}
+			fmt.Printf("[INFO] wrote: %q\n", destFilePath)
 		}
-		fmt.Println()
 	}
+	fmt.Println()
 }
