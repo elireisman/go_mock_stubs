@@ -30,8 +30,7 @@ package {{.Pkg}}
 type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
 type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
-{{end}}
-}
+{{end}}}
 {{end}}{{end}}
 
 {{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
@@ -118,9 +117,15 @@ func main() {
 					if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
 						rName, rType := GlobalScope, GlobalScope
 						if fn.Recv != nil && len(fn.Recv.List) > 0 {
-							if ptrExpr, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
-								astID, _ := ptrExpr.X.(*ast.Ident)
-								rName, rType = fn.Recv.List[0].Names[0].Name, astID.Name
+							rcvr := fn.Recv.List[0]
+							//fmt.Printf("[DEBUG] fn.Recv.List[0].Names[0].Name: %T\t%+v\t%#v\n", fn.Recv.List[0].Names[0].Name, fn.Recv.List[0].Names[0].Name, fn.Recv.List[0].Names[0].Name)
+							//fmt.Printf("[DEBUG] fn.Recv.List[0].Type: %T\t%+v\t%#v\n", fn.Recv.List[0].Type, fn.Recv.List[0].Type, fn.Recv.List[0].Type)
+							if id, ok := rcvr.Type.(*ast.Ident); ok {
+								rName = rcvr.Names[0].Name
+								rType, _ = strconv.Unquote(id.Name)
+							} else if ptr, ok := rcvr.Type.(*ast.StarExpr); ok {
+								astID, _ := ptr.X.(*ast.Ident)
+								rName, rType = rcvr.Names[0].Name, astID.Name
 							}
 						}
 
@@ -161,19 +166,20 @@ func main() {
 			continue
 		}
 
-		// all that whitespace for readability in MockTemplate comes at cost...
+		// TODO: something less lazy here
 		out := strings.Trim(MultiLineWS.ReplaceAllString(raw.String(), "\n\n"), " \t\r\n")
+		destFilePath := utils.BuildDest(fileName)
 
 		if StdOut {
 			fmt.Println()
+			fmt.Printf("\x1b[1m[INFO] dry run for output file: %q\x1b[0m\n", destFilePath)
 			fmt.Println(out)
 		} else {
-			destFilePath := utils.BuildDest(fileName)
+			fmt.Printf("\x1b[1m[INFO] writing output file to: %q\x1b[0m\n", destFilePath)
 			if ioutil.WriteFile(destFilePath, []byte(out), os.FileMode(0664)); err != nil {
 				panic(fmt.Sprintf("failed to write output to %q, error: %s", destFilePath, err))
 			}
-			fmt.Printf("[INFO] wrote: %q\n", destFilePath)
 		}
 	}
-	fmt.Println()
+	fmt.Println("\n\x1b[1m[INFO] code generation complete\x1b[0m\n")
 }
