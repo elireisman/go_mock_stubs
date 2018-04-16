@@ -109,7 +109,6 @@ func main() {
 					}
 				} else if fn, ok := n.(*ast.FuncDecl); ok {
 					// collect all public struct method decls across files in pkg
-					// so that we can generate mock stubs with full API at struct decl site
 					if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
 						if fn.Recv != nil && len(fn.Recv.List) > 0 && len(fn.Recv.List[0].Names[0].Name) > 0 {
 							sig := tree.Signature{
