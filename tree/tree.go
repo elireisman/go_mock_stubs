@@ -162,8 +162,9 @@ func ParseType(t interface{}, path []string) (interface{}, []string) {
 	case *ast.ArrayType:
 		path = append(path, `[`)
 		if elem.Len != nil {
-			// TODO: handle fixed size array with t.Len field "[%d]" style
-			fmt.Printf("[DEBUG] Array Size: %+v\n", elem.Len)
+			if lit, ok := elem.Len.(*ast.BasicLit); ok {
+				path = append(path, lit.Value)
+			}
 		}
 		path = append(path, `]`)
 		t, path = ParseType(elem.Elt, path)

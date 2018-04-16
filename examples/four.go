@@ -29,6 +29,10 @@ func (o *Orange) Eat() (say string) {
 	return
 }
 
+func (o *Orange) Point(coords [3]int) error {
+	return nil
+}
+
 type OtherThing interface {
 	GoForIt(bool)
 }
