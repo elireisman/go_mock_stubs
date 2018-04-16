@@ -45,7 +45,7 @@ func (cu *CompilationUnit) Render() (bytes.Buffer, error) {
 	// if this compilation unit (file) contains struct decls, we print the
 	// mock struct, API stubs, and public interface in a*_mock.go file
 	if len(cu.DeclHere) > 0 {
-		fmt.Printf("[DEBUG] imports in scope for %q: %+v", cu.Source, cu.Imports)
+		//fmt.Printf("[DEBUG] imports in scope for %q: %+v", cu.Source, cu.Imports)
 		if err := utils.Compiled.Execute(&output, cu); err != nil {
 			return output, fmt.Errorf("failed to resolve output string from template: %s", err)
 		}
