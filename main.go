@@ -16,30 +16,6 @@ import (
 	"github.com/elireisman/go_mock_stubs/utils"
 )
 
-const MockTemplate = `{{$unit := .}}
-
-package {{.Pkg}}
-
-{{.FormatImports}}
-
-{{range $rcvr, $sigs := $unit.Methods}}
-{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
-type {{$rcvr}}Iface interface {
-{{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
-{{end}}}
-type {{$firstSig := index $sigs 0}}{{$firstSig.Receiver.ToMock}} struct { }
-{{end}}{{end}}
-
-{{range $rcvr, $sigs := $unit.Methods}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
-{{range $sig := $sigs}}func ({{$sig.Receiver.Name}} {{$sig.Receiver.Ptr}}{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}} {
-  panic("mock: stub method not implemented")
-}
-
-{{end}}{{end}}
-
-{{end}}
-`
-
 var (
 	SourceDir   string
 	StdOut      bool
@@ -112,13 +88,13 @@ func main() {
 					}
 				} else if fn, ok := n.(*ast.FuncDecl); ok {
 					// collect all public struct method decls across files in pkg
-					if utils.IsPublicMethod(&unit, fn) {
+					if utils.IsPublicMethod(fn) {
 						sig := tree.Signature{
 							Name:     fn.Name.Name,
 							Receiver: tree.NewField(fn.Recv.List[0]),
-							Args:     utils.ProcessFields(&unit, fn.Type.Params),
-							Returns:  utils.ProcessFields(&unit, fn.Type.Results),
 						}
+						sig.ProcessArgs(fn.Type.Params)
+						sig.ProcessReturns(fn.Type.Results)
 
 						rcvrType := sig.Receiver.Type[len(sig.Receiver.Type)-1]
 						unit.Methods[rcvrType] = append(unit.Methods[rcvrType], sig)
@@ -135,8 +111,8 @@ func main() {
 
 	// now that we've collected all the state across all the packages,
 	// we have the complete picture and can render the output files
-	for fileName, unit := range outFiles {
-		raw, err := utils.Render(&unit, MockTemplate)
+	for _, unit := range outFiles {
+		raw, err := unit.Render()
 		if err != nil {
 			panic(err)
 		}
@@ -148,7 +124,7 @@ func main() {
 
 		// TODO: something less lazy here
 		out := strings.Trim(MultiLineWS.ReplaceAllString(raw.String(), "\n\n"), " \t\r\n")
-		destFilePath := utils.BuildDest(fileName)
+		destFilePath := unit.Dest()
 
 		if StdOut {
 			fmt.Println()

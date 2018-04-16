@@ -1,10 +1,14 @@
 package tree
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"path"
+	"path/filepath"
 	"strings"
+
+	"github.com/elireisman/go_mock_stubs/utils"
 )
 
 type Package struct {
@@ -33,6 +37,21 @@ type CompilationUnit struct {
 	// exclude any methods on our target structs defined
 	// across more than one source file
 	Methods map[string][]Signature
+}
+
+func (cu *CompilationUnit) Render() (bytes.Buffer, error) {
+	var output bytes.Buffer
+
+	// if this compilation unit (file) contains struct decls, we print the
+	// mock struct, API stubs, and public interface in a*_mock.go file
+	if len(cu.DeclHere) > 0 {
+		fmt.Printf("[DEBUG] imports in scope for %q: %+v", cu.Source, cu.Imports)
+		if err := utils.Compiled.Execute(&output, cu); err != nil {
+			return output, fmt.Errorf("failed to resolve output string from template: %s", err)
+		}
+	}
+
+	return output, nil
 }
 
 func (cu *CompilationUnit) FormatImports() string {
@@ -67,6 +86,18 @@ func (cu *CompilationUnit) FormatImports() string {
 func (cu *CompilationUnit) IsDeclaredHere(receiver string) bool {
 	_, found := cu.DeclHere[receiver]
 	return found
+}
+
+func (cu *CompilationUnit) Dest() string {
+	if len(cu.Source) == 0 || filepath.Ext(cu.Source) != ".go" {
+		panic(fmt.Sprintf("illegal argument to --source, got: %q", cu.Source))
+	}
+
+	dir := filepath.Dir(cu.Source)
+	base := filepath.Base(cu.Source)
+	mockFile := base[:len(base)-3] + "_mock.go"
+
+	return dir + "/" + mockFile
 }
 
 // expensive, but we want to get this right, so KISS
@@ -146,6 +177,26 @@ func (s Signature) getDeclaredReturns() []string {
 	}
 
 	return out
+}
+
+func (s *Signature) ProcessArgs(args *ast.FieldList) {
+	s.Args = s.processFields(args)
+}
+
+func (s *Signature) ProcessReturns(rets *ast.FieldList) {
+	s.Returns = s.processFields(rets)
+}
+
+func (s *Signature) processFields(args *ast.FieldList) []Field {
+	fields := []Field{}
+	if args != nil {
+		for _, f := range args.List {
+			field := NewField(f)
+			fields = append(fields, field)
+		}
+	}
+
+	return fields
 }
 
 type Field struct {
