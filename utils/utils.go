@@ -20,6 +20,7 @@ func Render(unit *tree.CompilationUnit, mockTemplate string) (bytes.Buffer, erro
 	// if this compilation unit (file) contains struct decls, we print the
 	// mock struct, API stubs, and public interface in a*_mock.go file
 	if len(unit.DeclHere) > 0 {
+		fmt.Printf("[DEBUG] imports in scope for %q: %+v", unit.Source, unit.Imports)
 		if err := tmpl.Execute(&output, unit); err != nil {
 			return output, fmt.Errorf("failed to resolve output string from template: %s", err)
 		}
@@ -36,23 +37,12 @@ func IsPublicMethod(unit *tree.CompilationUnit, fn *ast.FuncDecl) bool {
 		len(fn.Recv.List[0].Names[0].Name) > 0
 }
 
-func ExtractPkgPrefix(unit *tree.CompilationUnit, path []string) {
-
-	for ndx, elem := range path {
-		if elem == `.` {
-			unit.Prefixes[path[ndx-1]] = true
-			return
-		}
-	}
-}
-
 func ProcessFields(unit *tree.CompilationUnit, args *ast.FieldList) []tree.Field {
 	fields := []tree.Field{}
 	if args != nil {
 		for _, f := range args.List {
 			field := tree.NewField(f)
 			fields = append(fields, field)
-			ExtractPkgPrefix(unit, field.Type)
 		}
 	}
 

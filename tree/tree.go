@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+type Package struct {
+	Name    string
+	Methods map[string][]Signature
+	Imports []Import
+}
+
 type CompilationUnit struct {
 	// input file this struct was populated from
 	Source string
@@ -22,10 +28,6 @@ type CompilationUnit struct {
 	// declared across multiple files
 	DeclHere map[string]bool
 
-	// all package names used in method args or returns in this
-	// file. used to trim down imports in generated files
-	Prefixes map[string]bool
-
 	// ref to a global mapping of public structs we intend
 	// to mock from this package. Used to ensure we don't
 	// exclude any methods on our target structs defined
@@ -35,12 +37,16 @@ type CompilationUnit struct {
 
 func (cu *CompilationUnit) FormatImports() string {
 	found := map[Import]bool{}
+	prefixes := cu.extractPrefixes()
 
+	// TODO: there are still corner cases we don't handle but they are obscure.
+	// ex: multiple files where struct's methods are defined include same import
+	// aliased several different ways...
 	for _, imp := range cu.Imports {
 		_, pkg := path.Split(imp.Path)
-		if _, ok := cu.Prefixes[imp.Alias]; ok {
+		if _, ok := prefixes[imp.Alias]; ok {
 			found[imp] = true
-		} else if _, ok := cu.Prefixes[pkg]; ok {
+		} else if _, ok := prefixes[pkg]; ok {
 			found[imp] = true
 		}
 	}
@@ -61,6 +67,35 @@ func (cu *CompilationUnit) FormatImports() string {
 func (cu *CompilationUnit) IsDeclaredHere(receiver string) bool {
 	_, found := cu.DeclHere[receiver]
 	return found
+}
+
+// expensive, but we want to get this right, so KISS
+func (cu *CompilationUnit) extractPrefixes() map[string]bool {
+	out := map[string]bool{}
+	for decl := range cu.DeclHere {
+		for rcvr, sigs := range cu.Methods {
+			if decl == rcvr {
+				for _, sig := range sigs {
+					for _, field := range sig.Args {
+						cu.extractPkg(out, field.Type)
+					}
+					for _, field := range sig.Returns {
+						cu.extractPkg(out, field.Type)
+					}
+				}
+			}
+		}
+	}
+
+	return out
+}
+
+func (cu *CompilationUnit) extractPkg(out map[string]bool, path []string) {
+	for ndx, elem := range path {
+		if elem == `.` {
+			out[path[ndx-1]] = true
+		}
+	}
 }
 
 type Import struct {

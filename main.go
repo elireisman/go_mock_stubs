@@ -62,20 +62,23 @@ func main() {
 		panic(fmt.Sprintf("failed to parse source files in %q into Golang AST: %s", SourceDir, err))
 	}
 
-	// maintain global mapping of "pkg name" -> "public struct" -> "methods"
-	// use this to render files in 2nd pass so that methods defined on
-	// same struct across multiple source files are properly mocked
-	outPkgs := map[string]map[string][]tree.Signature{}
+	// maintain global mapping of file imports and method defs per package.
+	// this context is needed when generating output files for our target structs
+	pkgDefs := map[string]tree.Package{}
 
-	// maintain mapping of filename to file contents for rendering
+	// maintain mapping of filename to file contents for simplicity when rendering output
 	outFiles := map[string]tree.CompilationUnit{}
 
 	// iterate over all files in each package, extracting info we need to generate mock files
 	for _, pkg := range inPkgs {
 
 		pkgName := pkg.Name
-		if _, ok := outPkgs[pkgName]; !ok {
-			outPkgs[pkgName] = map[string][]tree.Signature{}
+		if _, ok := pkgDefs[pkgName]; !ok {
+			pkgDefs[pkgName] = tree.Package{
+				Name:    pkgName,
+				Methods: map[string][]tree.Signature{},
+				Imports: []tree.Import{},
+			}
 		}
 
 		for fileName, node := range pkg.Files {
@@ -83,10 +86,9 @@ func main() {
 			unit := tree.CompilationUnit{
 				Pkg:      pkgName,
 				Source:   fileName,
-				Imports:  []tree.Import{},
+				Imports:  pkgDefs[pkgName].Imports,
 				DeclHere: map[string]bool{},
-				Prefixes: map[string]bool{},
-				Methods:  outPkgs[pkgName],
+				Methods:  pkgDefs[pkgName].Methods,
 			}
 
 			for _, impt := range node.Imports {
