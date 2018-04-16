@@ -15,7 +15,7 @@ func (a Apple) String() string {
 }
 
 func (a *Apple) CanSell() bool {
-	return time.Now().After(a.sellBy)
+	return time.Now().Before(a.sellBy)
 }
 
 type Orange struct {
