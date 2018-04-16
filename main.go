@@ -114,8 +114,8 @@ func main() {
 						sig := tree.Signature{
 							Name:     fn.Name.Name,
 							Receiver: tree.NewField(fn.Recv.List[0]),
-							Args:     utils.FormatArgs(&unit, fn.Type.Params),
-							Returns:  utils.FormatArgs(&unit, fn.Type.Results),
+							Args:     utils.ProcessFields(&unit, fn.Type.Params),
+							Returns:  utils.ProcessFields(&unit, fn.Type.Results),
 						}
 
 						rcvrType := sig.Receiver.Type[len(sig.Receiver.Type)-1]

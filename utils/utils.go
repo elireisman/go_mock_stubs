@@ -46,7 +46,7 @@ func ExtractPkgPrefix(unit *tree.CompilationUnit, path []string) {
 	}
 }
 
-func FormatArgs(unit *tree.CompilationUnit, args *ast.FieldList) []tree.Field {
+func ProcessFields(unit *tree.CompilationUnit, args *ast.FieldList) []tree.Field {
 	fields := []tree.Field{}
 	if args != nil {
 		for _, f := range args.List {
