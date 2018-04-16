@@ -8,16 +8,34 @@ import (
 )
 
 type CompilationUnit struct {
-	Source   string
-	Pkg      string
-	Imports  []Import
+	// input file this struct was populated from
+	Source string
+
+	// the parent package for this compilation unit
+	Pkg string
+
+	// list of imports for mock file gen; includes alias if defined
+	Imports []Import
+
+	// set of all public structs declared in this file
+	// avoids redfining mock structs when methods are
+	// declared across multiple files
 	DeclHere map[string]bool
+
+	// all package names used in method args or returns in this
+	// file. used to trim down imports in generated files
 	Prefixes map[string]bool
-	Funcs    map[string][]Signature
+
+	// ref to a global mapping of public structs we intend
+	// to mock from this package. Used to ensure we don't
+	// exclude any methods on our target structs defined
+	// across more than one source file
+	Methods map[string][]Signature
 }
 
 func (cu *CompilationUnit) FormatImports() string {
 	found := map[Import]bool{}
+
 	for _, imp := range cu.Imports {
 		_, pkg := path.Split(imp.Path)
 		if _, ok := cu.Prefixes[imp.Alias]; ok {

@@ -28,6 +28,14 @@ func Render(unit *tree.CompilationUnit, mockTemplate string) (bytes.Buffer, erro
 	return output, nil
 }
 
+func IsPublicMethod(unit *tree.CompilationUnit, fn *ast.FuncDecl) bool {
+	return len(fn.Name.Name) > 0 &&
+		fn.Name.IsExported() &&
+		fn.Recv != nil &&
+		len(fn.Recv.List) > 0 &&
+		len(fn.Recv.List[0].Names[0].Name) > 0
+}
+
 func ExtractPkgPrefix(unit *tree.CompilationUnit, path []string) {
 
 	for ndx, elem := range path {

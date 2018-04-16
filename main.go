@@ -22,15 +22,15 @@ package {{.Pkg}}
 
 {{.FormatImports}}
 
-{{range $rcvr, $sigs := .Funcs}}
+{{range $rcvr, $sigs := $unit.Methods}}
 {{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
 {{end}}}
-type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
+type {{$firstSig := index $sigs 0}}{{$firstSig.Receiver.ToMock}} struct { }
 {{end}}{{end}}
 
-{{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
+{{range $rcvr, $sigs := $unit.Methods}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 {{range $sig := $sigs}}func ({{$sig.Receiver.Name}} {{$sig.Receiver.Ptr}}{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}} {
   panic("mock: stub method not implemented")
 }
@@ -47,7 +47,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&SourceDir, "source-dir", "example", "the directory under which all Golang source files will be parsed")
+	flag.StringVar(&SourceDir, "source-dir", "example", "this dir will be recursively searched for Golang source files to parse")
 	flag.BoolVar(&StdOut, "stdout", false, "stream output code to stdout rather than writing to *_mock.go file under the source's dir")
 
 	MultiLineWS = regexp.MustCompile(`\r?\n\r?\n(\r?\n)+`)
@@ -82,10 +82,11 @@ func main() {
 
 			unit := tree.CompilationUnit{
 				Pkg:      pkgName,
+				Source:   fileName,
 				Imports:  []tree.Import{},
 				DeclHere: map[string]bool{},
 				Prefixes: map[string]bool{},
-				Funcs:    outPkgs[pkgName],
+				Methods:  outPkgs[pkgName],
 			}
 
 			for _, impt := range node.Imports {
@@ -109,18 +110,16 @@ func main() {
 					}
 				} else if fn, ok := n.(*ast.FuncDecl); ok {
 					// collect all public struct method decls across files in pkg
-					if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
-						if fn.Recv != nil && len(fn.Recv.List) > 0 && len(fn.Recv.List[0].Names[0].Name) > 0 {
-							sig := tree.Signature{
-								Name:     fn.Name.Name,
-								Receiver: tree.NewField(fn.Recv.List[0]),
-								Args:     utils.FormatArgs(&unit, fn.Type.Params),
-								Returns:  utils.FormatArgs(&unit, fn.Type.Results),
-							}
-
-							rcvrType := sig.Receiver.Type[len(sig.Receiver.Type)-1]
-							unit.Funcs[rcvrType] = append(unit.Funcs[rcvrType], sig)
+					if utils.IsPublicMethod(&unit, fn) {
+						sig := tree.Signature{
+							Name:     fn.Name.Name,
+							Receiver: tree.NewField(fn.Recv.List[0]),
+							Args:     utils.FormatArgs(&unit, fn.Type.Params),
+							Returns:  utils.FormatArgs(&unit, fn.Type.Results),
 						}
+
+						rcvrType := sig.Receiver.Type[len(sig.Receiver.Type)-1]
+						unit.Methods[rcvrType] = append(unit.Methods[rcvrType], sig)
 					}
 				}
 
@@ -151,14 +150,14 @@ func main() {
 
 		if StdOut {
 			fmt.Println()
-			fmt.Printf("\x1b[1m[INFO] dry run for output file: %q\x1b[0m\n", destFilePath)
+			fmt.Printf("\x1b[1m[.] dry run for output file: %q\x1b[0m\n", destFilePath)
 			fmt.Println(out)
 		} else {
-			fmt.Printf("\x1b[1m[INFO] writing output file to: %q\x1b[0m\n", destFilePath)
+			fmt.Printf("\x1b[1m[.] writing output file to: %q\x1b[0m\n", destFilePath)
 			if ioutil.WriteFile(destFilePath, []byte(out), os.FileMode(0664)); err != nil {
 				panic(fmt.Sprintf("failed to write output to %q, error: %s", destFilePath, err))
 			}
 		}
 	}
-	fmt.Println("\n\x1b[1m[INFO] code generation complete\x1b[0m\n")
+	fmt.Println("\n\x1b[1m[.] code generation complete\x1b[0m\n")
 }
