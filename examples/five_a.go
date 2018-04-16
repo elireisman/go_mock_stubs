@@ -1,9 +1,9 @@
-package tmp
+package examples
 
-type Testr struct {
+type Multi struct {
 	OMG bool
 }
 
-func (tr Testr) OMG() bool {
+func (mul Multi) OMG() bool {
 	return tr.OMG
 }
