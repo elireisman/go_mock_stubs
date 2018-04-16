@@ -27,14 +27,14 @@ package {{.Pkg}}
 
 {{range $rcvr, $sigs := .Funcs}}
 {{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
-type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
 type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
 {{end}}}
+type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
 {{end}}{{end}}
 
 {{range $rcvr, $sigs := .Funcs}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
-{{range $sig := $sigs}}func ({{$sig.Receiver.Name}} *{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}} {
+{{range $sig := $sigs}}func ({{$sig.Receiver.Name}} {{$sig.Receiver.Ptr}}{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}} {
   panic("mock: stub method not implemented")
 }
 
@@ -115,33 +115,19 @@ func main() {
 					// collect all public struct method decls across files in pkg
 					// so that we can generate mock stubs with full API at struct decl site
 					if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
-						rName, rType := GlobalScope, GlobalScope
-						if fn.Recv != nil && len(fn.Recv.List) > 0 {
-							rcvr := fn.Recv.List[0]
+						if fn.Recv != nil && len(fn.Recv.List) > 0 && len(fn.Recv.List[0].Names[0].Name) > 0 {
 							//fmt.Printf("[DEBUG] fn.Recv.List[0].Names[0].Name: %T\t%+v\t%#v\n", fn.Recv.List[0].Names[0].Name, fn.Recv.List[0].Names[0].Name, fn.Recv.List[0].Names[0].Name)
 							//fmt.Printf("[DEBUG] fn.Recv.List[0].Type: %T\t%+v\t%#v\n", fn.Recv.List[0].Type, fn.Recv.List[0].Type, fn.Recv.List[0].Type)
-							if id, ok := rcvr.Type.(*ast.Ident); ok {
-								rName = rcvr.Names[0].Name
-								rType, _ = strconv.Unquote(id.Name)
-							} else if ptr, ok := rcvr.Type.(*ast.StarExpr); ok {
-								astID, _ := ptr.X.(*ast.Ident)
-								rName, rType = rcvr.Names[0].Name, astID.Name
+							sig := tree.Signature{
+								Name:     fn.Name.Name,
+								Receiver: tree.NewField(fn.Recv.List[0]),
+								Args:     utils.FormatArgs(&unit, fn.Type.Params),
+								Returns:  utils.FormatArgs(&unit, fn.Type.Results),
 							}
-						}
 
-						// don't pick up functions that don't have a reciever (i.e. globals)
-						if rName == "" {
-							return true
+							rcvrType := sig.Receiver.Type[len(sig.Receiver.Type)-1]
+							unit.Funcs[rcvrType] = append(unit.Funcs[rcvrType], sig)
 						}
-
-						sig := tree.Signature{
-							Name:     fn.Name.Name,
-							Receiver: tree.NewField(fn.Recv.List[0]),
-							Args:     utils.FormatArgs(&unit, fn.Type.Params),
-							Returns:  utils.FormatArgs(&unit, fn.Type.Results),
-						}
-
-						unit.Funcs[rType] = append(unit.Funcs[rType], sig)
 					}
 				}
 

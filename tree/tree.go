@@ -125,13 +125,16 @@ func (f Field) Render() string {
 	return fmt.Sprintf("%s", f.GetType())
 }
 
-// only ever used on receiver which will be "Type" or "pkg.Type"
 func (f Field) ToMock() string {
-	if len(f.Type) != 2 {
-		panic(fmt.Sprintf("failed to render mock struct from orig type: %s", f.GetType()))
+	return "Mock" + f.Type[len(f.Type)-1]
+}
+
+func (f Field) Ptr() string {
+	var ndx int
+	for ndx = 0; ndx < len(f.Type) && f.Type[ndx] == `*`; ndx++ {
 	}
 
-	return "Mock" + f.Type[1]
+	return strings.Join(f.Type[:ndx], "")
 }
 
 func ParseType(t interface{}, path []string) (interface{}, []string) {
