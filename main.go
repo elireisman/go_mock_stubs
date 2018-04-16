@@ -16,10 +16,7 @@ import (
 	"github.com/elireisman/go_mock_stubs/utils"
 )
 
-const (
-	GlobalScope = ""
-
-	MockTemplate = `{{$unit := .}}
+const MockTemplate = `{{$unit := .}}
 
 package {{.Pkg}}
 
@@ -42,7 +39,6 @@ type {{$x := index $sigs 0}}{{$x.Receiver.ToMock}} struct { }
 
 {{end}}
 `
-)
 
 var (
 	SourceDir   string
@@ -71,10 +67,10 @@ func main() {
 	// same struct across multiple source files are properly mocked
 	outPkgs := map[string]map[string][]tree.Signature{}
 
-	// maintain mapping of filename to file render data for printing
+	// maintain mapping of filename to file contents for rendering
 	outFiles := map[string]tree.CompilationUnit{}
 
-	// iterate over each package, all files in each package.
+	// iterate over all files in each package, extracting info we need to generate mock files
 	for _, pkg := range inPkgs {
 
 		pkgName := pkg.Name
@@ -116,8 +112,6 @@ func main() {
 					// so that we can generate mock stubs with full API at struct decl site
 					if len(fn.Name.Name) > 0 && fn.Name.IsExported() {
 						if fn.Recv != nil && len(fn.Recv.List) > 0 && len(fn.Recv.List[0].Names[0].Name) > 0 {
-							//fmt.Printf("[DEBUG] fn.Recv.List[0].Names[0].Name: %T\t%+v\t%#v\n", fn.Recv.List[0].Names[0].Name, fn.Recv.List[0].Names[0].Name, fn.Recv.List[0].Names[0].Name)
-							//fmt.Printf("[DEBUG] fn.Recv.List[0].Type: %T\t%+v\t%#v\n", fn.Recv.List[0].Type, fn.Recv.List[0].Type, fn.Recv.List[0].Type)
 							sig := tree.Signature{
 								Name:     fn.Name.Name,
 								Receiver: tree.NewField(fn.Recv.List[0]),
