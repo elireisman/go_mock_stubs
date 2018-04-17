@@ -40,7 +40,7 @@ func main() {
 
 	// maintain global mapping of file imports and method defs per package.
 	// this context is needed when generating output files for our target structs
-	pkgDefs := map[string]tree.Package{}
+	pkgDefs := map[string]*tree.Package{}
 
 	// maintain mapping of filename to file contents for simplicity when rendering output
 	outFiles := map[string]tree.CompilationUnit{}
@@ -50,21 +50,19 @@ func main() {
 
 		pkgName := pkg.Name
 		if _, ok := pkgDefs[pkgName]; !ok {
-			pkgDefs[pkgName] = tree.Package{
+			pkgDefs[pkgName] = &tree.Package{
 				Name:    pkgName,
 				Methods: map[string][]tree.Signature{},
-				Imports: []tree.Import{},
+				Imports: map[tree.Import]bool{},
 			}
 		}
 
 		for fileName, node := range pkg.Files {
 
 			unit := tree.CompilationUnit{
-				Pkg:      pkgName,
+				Pkg:      pkgDefs[pkgName],
 				Source:   fileName,
-				Imports:  pkgDefs[pkgName].Imports,
 				DeclHere: map[string]bool{},
-				Methods:  pkgDefs[pkgName].Methods,
 			}
 
 			for _, impt := range node.Imports {
@@ -74,7 +72,7 @@ func main() {
 				}
 				path, _ := strconv.Unquote(impt.Path.Value)
 				next := tree.Import{Alias: alias, Path: path}
-				unit.Imports = append(unit.Imports, next)
+				unit.Pkg.Imports[next] = true
 			}
 
 			// extract metadata from any methods with a pointer to a struct as a receiver
@@ -97,7 +95,7 @@ func main() {
 						sig.ProcessReturns(fn.Type.Results)
 
 						rcvrType := sig.Receiver.Type[len(sig.Receiver.Type)-1]
-						unit.Methods[rcvrType] = append(unit.Methods[rcvrType], sig)
+						unit.Pkg.Methods[rcvrType] = append(unit.Pkg.Methods[rcvrType], sig)
 					}
 				}
 

@@ -14,7 +14,7 @@ import (
 type Package struct {
 	Name    string
 	Methods map[string][]Signature
-	Imports []Import
+	Imports map[Import]bool
 }
 
 type CompilationUnit struct {
@@ -22,21 +22,12 @@ type CompilationUnit struct {
 	Source string
 
 	// the parent package for this compilation unit
-	Pkg string
-
-	// list of imports for mock file gen; includes alias if defined
-	Imports []Import
+	Pkg *Package
 
 	// set of all public structs declared in this file
 	// avoids redfining mock structs when methods are
 	// declared across multiple files
 	DeclHere map[string]bool
-
-	// ref to a global mapping of public structs we intend
-	// to mock from this package. Used to ensure we don't
-	// exclude any methods on our target structs defined
-	// across more than one source file
-	Methods map[string][]Signature
 }
 
 func (cu *CompilationUnit) Render() (bytes.Buffer, error) {
@@ -61,7 +52,7 @@ func (cu *CompilationUnit) FormatImports() string {
 	// TODO: there are still corner cases we don't handle but they are obscure.
 	// ex: multiple files where struct's methods are defined include same import
 	// aliased several different ways...
-	for _, imp := range cu.Imports {
+	for imp := range cu.Pkg.Imports {
 		_, pkg := path.Split(imp.Path)
 		if _, ok := prefixes[imp.Alias]; ok {
 			found[imp] = true
@@ -104,7 +95,7 @@ func (cu *CompilationUnit) Dest() string {
 func (cu *CompilationUnit) extractPrefixes() map[string]bool {
 	out := map[string]bool{}
 	for decl := range cu.DeclHere {
-		for rcvr, sigs := range cu.Methods {
+		for rcvr, sigs := range cu.Pkg.Methods {
 			if decl == rcvr {
 				for _, sig := range sigs {
 					for _, field := range sig.Args {

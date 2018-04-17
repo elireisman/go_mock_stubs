@@ -8,11 +8,11 @@ import (
 
 const MockTemplate = `{{$unit := .}}
 
-package {{.Pkg}}
+package {{.Pkg.Name}}
 
 {{.FormatImports}}
 
-{{range $rcvr, $sigs := $unit.Methods}}
+{{range $rcvr, $sigs := .Pkg.Methods}}
 {{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 type {{$rcvr}}Iface interface {
 {{range $sig := $sigs}}  {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}}
@@ -20,7 +20,7 @@ type {{$rcvr}}Iface interface {
 type {{$firstSig := index $sigs 0}}{{$firstSig.Receiver.ToMock}} struct { }
 {{end}}{{end}}
 
-{{range $rcvr, $sigs := $unit.Methods}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
+{{range $rcvr, $sigs := .Pkg.Methods}}{{$isLocal := $rcvr | $unit.IsDeclaredHere}}{{if $isLocal}}
 {{range $sig := $sigs}}func ({{$sig.Receiver.Name}} {{$sig.Receiver.Ptr}}{{$sig.Receiver.ToMock}}) {{$sig.Name}}({{$sig.ListArgs}}){{$sig.ListReturns}} {
   panic("mock: stub method not implemented")
 }
