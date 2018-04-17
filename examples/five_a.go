@@ -1,9 +1,9 @@
 package examples
 
-type Multi struct {
+type MultiFileDef struct {
 	OMG bool
 }
 
-func (mul Multi) OMG() bool {
+func (mul MultiFileDef) OMG() bool {
 	return tr.OMG
 }

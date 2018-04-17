@@ -1,9 +1,16 @@
 package examples
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
-// TODO: store imports at method-receiver scope so imports for
-// struct methods defined across multiple files works :(
-func (mul *Multi) Goofy(r *http.Request) string {
+func (mul *MultiFileDef) Goofy(r *http.Request) string {
 	return "goofy"
 }
+
+func (mul *MultiFileDef) Foobarz(grid [20][20]int32, printable fmt.Stringer) (e error) {
+	return
+}
+
+func (mul MultiFileDef) multiNotForMocking() {}

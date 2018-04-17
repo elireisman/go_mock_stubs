@@ -154,8 +154,14 @@ func (s Signature) ListReturns() string {
 	switch len(s.Returns) {
 	case 0:
 		return ""
+
 	case 1:
-		return " " + s.Returns[0].Render()
+		if s.Returns[0].Name != "" {
+			return " (" + s.Returns[0].Render() + ")"
+		} else {
+			return " " + s.Returns[0].Render()
+		}
+
 	default:
 		return " (" + strings.Join(s.getDeclaredReturns(), ", ") + ")"
 	}
