@@ -20,6 +20,9 @@ make
 # writes output files based on input file paths, as: example/*_mock.go
 ./gen_stubs --source=dir=examples
 
+# parse the examples directory, but only generate output mocks for selected struct types
+./gen_stubs --source-dir=examples --targets examples.Apple,examples.Orange --stdout
+
 # better example
 mkdir -p tmp
 pushd tmp && wget -q https://raw.githubusercontent.com/olivere/elastic/release-branch.v6/client.go && popd

@@ -19,11 +19,14 @@ import (
 var (
 	SourceDir   string
 	StdOut      bool
+	Targets     []string
+	rawTargets  string
 	MultiLineWS *regexp.Regexp
 )
 
 func init() {
 	flag.StringVar(&SourceDir, "source-dir", "example", "this dir will be recursively searched for Golang source files to parse")
+	flag.StringVar(&rawTargets, "targets", "", "CSV list of form `pkg.Type,pkg2.Type2,...` - only write output mock files defining these types")
 	flag.BoolVar(&StdOut, "stdout", false, "stream output code to stdout rather than writing to *_mock.go file under the source's dir")
 
 	MultiLineWS = regexp.MustCompile(`\r?\n\r?\n(\r?\n)+`)
@@ -31,6 +34,15 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	if rawTargets != "" {
+		ts := strings.Split(rawTargets, `,`)
+		for _, t := range ts {
+			if t != "" {
+				Targets = append(Targets, t)
+			}
+		}
+	}
 
 	fileSet := token.NewFileSet()
 	inPkgs, err := parser.ParseDir(fileSet, SourceDir, nil, parser.ParseComments)
@@ -110,7 +122,7 @@ func main() {
 	// now that we've collected all the state across all the packages,
 	// we have the complete picture and can render the output files
 	for _, unit := range outFiles {
-		raw, err := unit.Render()
+		raw, err := unit.Render(Targets)
 		if err != nil {
 			panic(err)
 		}

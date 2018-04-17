@@ -22,13 +22,14 @@ type CompilationUnit struct {
 	DeclHere map[string]bool
 }
 
-func (cu *CompilationUnit) Render() (bytes.Buffer, error) {
-	var output bytes.Buffer
+func (cu *CompilationUnit) Render(targets []string) (bytes.Buffer, error) {
+	// if the --targets CSV list is populated, filter for those declarations
+	cu.filterTargets(targets)
 
 	// if this compilation unit (file) contains struct decls, we print the
 	// mock struct, API stubs, and public interface in a*_mock.go file
+	var output bytes.Buffer
 	if len(cu.DeclHere) > 0 {
-		//fmt.Printf("[DEBUG] imports in scope for %q: %+v", cu.Source, cu.Imports)
 		if err := utils.Compiled.Execute(&output, cu); err != nil {
 			return output, fmt.Errorf("failed to resolve output string from template: %s", err)
 		}
@@ -108,6 +109,30 @@ func (cu *CompilationUnit) extractPkg(out map[string]bool, path []string) {
 	for ndx, elem := range path {
 		if elem == `.` {
 			out[path[ndx-1]] = true
+		}
+	}
+}
+
+// side effect onto this compilation unit the pruning
+// of all unit.DeclHere's not in the targets CSV list
+func (cu *CompilationUnit) filterTargets(targets []string) {
+	if targets != nil {
+		removals := []string{}
+		for decl := range cu.DeclHere {
+			declared := cu.Pkg.Name + `.` + decl
+			found := false
+			for _, target := range targets {
+				if target == declared {
+					found = true
+					break
+				}
+			}
+			if !found {
+				removals = append(removals, decl)
+			}
+		}
+		for _, r := range removals {
+			delete(cu.DeclHere, r)
 		}
 	}
 }
