@@ -1,10 +1,10 @@
-all: build
+all: clean build
 
 BINARY_NAME = gen_stubs
 
 clean:
 	@find examples -type f -name '*_mock.go' -delete
-	@rm $(BINARY_NAME) &>/dev/null
+	@rm -f $(BINARY_NAME) &>/dev/null
 
 format:
 	go get -u golang.org/x/tools/cmd/goimports
