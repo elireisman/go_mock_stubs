@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"go/ast"
+	"os"
+	"strings"
 	"text/template"
 )
 
@@ -46,4 +48,8 @@ func IsPublicMethod(fn *ast.FuncDecl) bool {
 		fn.Recv != nil &&
 		len(fn.Recv.List) > 0 &&
 		len(fn.Recv.List[0].Names[0].Name) > 0
+}
+
+func SkipExistingTests(fi os.FileInfo) bool {
+	return !strings.HasSuffix(fi.Name(), "_test.go")
 }

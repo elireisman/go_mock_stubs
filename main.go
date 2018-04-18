@@ -45,7 +45,7 @@ func main() {
 	}
 
 	fileSet := token.NewFileSet()
-	inPkgs, err := parser.ParseDir(fileSet, SourceDir, nil, parser.ParseComments)
+	inPkgs, err := parser.ParseDir(fileSet, SourceDir, utils.SkipExistingTests, parser.ParseComments)
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse source files in %q into Golang AST: %s", SourceDir, err))
 	}
