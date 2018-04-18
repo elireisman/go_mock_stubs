@@ -42,16 +42,16 @@ func (cu *CompilationUnit) FormatImports() string {
 	found := map[Import]bool{}
 	prefixes := cu.extractPrefixes()
 
-	// TODO: there are still corner cases we don't handle but they are obscure.
-	// ex: multiple files where struct's methods are defined include same import
-	// aliased several different ways...
 	for imp := range cu.Pkg.Imports {
 		_, pkg := path.Split(imp.Path)
+		// if we find an alias, use it (TODO: what if two pkg files use same alias for different libs?)
 		if _, ok := prefixes[imp.Alias]; ok {
 			found[imp] = true
-		} else if _, ok := prefixes[pkg]; ok {
+			// if the package itself matches, AND there's no alias (else why aren't we using that) then its a match
+		} else if _, ok := prefixes[pkg]; ok && imp.Alias == "" {
 			found[imp] = true
 		}
+		// TODO: what if same import is aliased in some files, not others in same pkg?
 	}
 
 	if len(found) == 0 {
