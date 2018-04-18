@@ -3,10 +3,13 @@ package examples
 import (
 	"fmt"
 	"log"
-	zzz "strings" // not needed for mocks
 	"sync"        // not needed
 	"sync/atomic" // not needed for mocks
 )
+
+// a bunch of random methods to exercise generator for:
+// 1. a wider range of data types
+// 2. removal of imports that aren't present in method signatures
 
 type privateSoNotMocked struct {
 	Nothing bool
@@ -19,11 +22,7 @@ type Person struct {
 	age  uint32
 }
 
-func (p *Person) ShowName(other string, maybe bool) error {
-	return zzz.Join([]string{p.name, other}, ",")
-}
-
-func (p *Person) GuessAge(tmpl fmt.Stringer, guesses map[string]uint32, hitEvent chan<- bool) ([][]byte, error) {
+func (p *Person) GuessAge(tmpl fmt.Stringer, guesses map[string]uint32, hitEvent chan<- bool) ([50][20]byte, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -34,7 +33,7 @@ func (p *Person) GuessAge(tmpl fmt.Stringer, guesses map[string]uint32, hitEvent
 		}
 	}
 
-	return nil, fmt.Errorf("ouch: %+v", guesses)
+	return [50][20]byte{}, fmt.Errorf("ouch: %+v", guesses)
 }
 
 func (p *Person) GetOlder(triplePtr ***uint32) (*log.Logger, *uint32, <-chan bool) {
@@ -44,6 +43,5 @@ func (p *Person) GetOlder(triplePtr ***uint32) (*log.Logger, *uint32, <-chan boo
 	return p.log, &result, make(<-chan bool)
 }
 
-func (p *Person) notBeingMocked() {
-	// no-op
-}
+// private methods of Person should be stripped from output
+func (p *Person) notBeingMocked() {}

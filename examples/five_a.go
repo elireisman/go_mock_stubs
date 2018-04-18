@@ -1,9 +1,11 @@
 package examples
 
+// exercise multiple mockable methods defined across several files for same struct
+
 type MultiFileDef struct {
-	OMG bool
+	omg bool
 }
 
 func (mul MultiFileDef) OMG() bool {
-	return tr.OMG
+	return mul.omg
 }

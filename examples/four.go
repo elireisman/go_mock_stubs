@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// exercise multiple mockable defs in same file
+
 type Apple struct {
 	batchID uint32
 	sellBy  time.Time

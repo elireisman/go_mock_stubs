@@ -5,6 +5,8 @@ import (
 	"net/http"
 )
 
+// exercise method defs on mockable struct defined in another file
+
 func (mul *MultiFileDef) Goofy(r *http.Request) string {
 	return "goofy"
 }

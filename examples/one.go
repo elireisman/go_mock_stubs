@@ -1,15 +1,25 @@
 package examples
 
 import (
-	"fmt"
+	"fmt" // should be stripped from output
 	"net/http"
 )
 
-type Fruit struct {
+// should not be present in output
+type Kiwi interface{}
+
+// MockBanana + BananaIface should be generated in output
+type Banana struct {
 	Tasty bool
 	Name  string
 }
 
-func (f *Fruit) Handler(w http.ResponseWriter, r *http.Rrequest) {
-	return http.Error(w, fmt.Sprintf("Sorry, tasty %s costs money!", f.Name), http.PaymentRequired)
+// methods with struct receiver are captured for Banana
+func (b Banana) IsTasty() bool {
+	return b.Tasty
+}
+
+// methods with pointer receivers are captured for Banana
+func (b *Banana) Handler(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, fmt.Sprintf("We have no %s today", b.Name), http.StatusPaymentRequired)
 }
